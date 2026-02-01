@@ -173,9 +173,8 @@ Glossary of Terms
       the Zephyr source code. A driver, a subsystem or an applications are all
       examples of software components present in Zephyr.
 
-   subsystem
-       A subsystem refers to a logically distinct part of the operating system
-       that handles specific functionality or provides certain services.
+   子系统
+      子系统（Subsystem）指的是操作系统中逻辑上独立的模块，负责处理特定功能或提供特定服务。
 
    system power state
       System power states describe the power consumption of the system as a
