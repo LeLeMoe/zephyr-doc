@@ -1,195 +1,157 @@
 .. _introducing_zephyr:
 
-Introduction
-############
+简介
+####
 
-The Zephyr OS is based on a small-footprint kernel designed for use on
-resource-constrained and embedded systems: from simple embedded environmental
-sensors and LED wearables to sophisticated embedded controllers, smart
-watches, and IoT wireless applications.
+Zephyr 操作系统基于一个小型内核，专为资源受限的嵌入式系统设计：
+从简单的嵌入式环境传感器、LED 可穿戴设备，到复杂的嵌入式控制器、智能手表以及 IoT 无线应用。
 
-The Zephyr kernel supports multiple architectures, including:
+Zephyr 内核支持多种架构，包括：
 
- - ARCv2 (EM and HS) and ARCv3 (HS6X)
- - ARMv6-M, ARMv7-M, and ARMv8-M (Cortex-M)
- - ARMv7-A and ARMv8-A (Cortex-A, 32- and 64-bit)
- - ARMv7-R, ARMv8-R (Cortex-R, 32- and 64-bit)
- - Intel x86 (32- and 64-bit)
- - MIPS (MIPS32 Release 1 specification)
+ - ARCv2（EM 和 HS）和 ARCv3（HS6X）
+ - ARMv6-M、ARMv7-M 和 ARMv8-M（Cortex-M）
+ - ARMv7-A 和 ARMv8-A（Cortex-A，32 位和 64 位）
+ - ARMv7-R 和 ARMv8-R（Cortex-R，32 位和 64 位）
+ - Intel x86（32 位和 64 位）
+ - MIPS（MIPS32 Release 1 规范）
  - Renesas RX
- - RISC-V (32- and 64-bit)
+ - RISC-V（32 位和 64 位）
  - SPARC V8
  - Tensilica Xtensa
 
-The full list of supported boards based on these architectures can be found :ref:`here <boards>`.
+有关基于这些架构的受支持开发板的完整列表，请参阅 :ref:`这里 <boards>`。
 
-In the context of the Zephyr OS, a :term:`subsystem` refers to a logically distinct
-part of the operating system that handles specific functionality or provides
-certain services. Subsystems can include components such as networking,
-file systems, device driver classes, power management, and communication protocols,
-among others. Each subsystem is designed to be modular and can be configured,
-customized, and extended to meet the requirements of different embedded
-applications.
+在 Zephyr 操作系统中，:term:`子系统 <subsystem>` 指的是操作系统中逻辑上独立的模块，负责处理特定功能或提供特定服务。
+子系统可以包含网络栈、文件系统、设备驱动类、电源管理以及通信协议等组件。
+每个子系统都采用了模块化设计，可以根据不同嵌入式应用的需求进行配置、定制和扩展。
 
-Licensing
-*********
+许可
+****
 
-Zephyr is permissively licensed using the `Apache 2.0 license`_
-(as found in the ``LICENSE`` file in the
-project's `GitHub repo`_).  There are some
-imported or reused components of the Zephyr project that use other licensing,
-as described in :ref:`Zephyr_Licensing`.
+Zephyr 采用宽松的 `Apache 2.0 许可证`_ 授权（详见项目 `GitHub 仓库`_ 中的 ``LICENSE`` 文件）。
+Zephyr 项目中部分导入或复用的组件遵循其他许可，具体请参阅 :ref:`Zephyr_Licensing`。
 
-.. _Apache 2.0 license:
+.. _Apache 2.0 许可证:
    https://github.com/zephyrproject-rtos/zephyr/blob/main/LICENSE
 
-.. _GitHub repo: https://github.com/zephyrproject-rtos/zephyr
+.. _GitHub 仓库: https://github.com/zephyrproject-rtos/zephyr
 
 
-Distinguishing Features
-***********************
+显著特性
+********
 
-Zephyr offers a large and ever growing number of features including:
+Zephyr 提供了大量且持续增加的特性，包括：
 
-**Extensive suite of Kernel services**
-   Zephyr offers a number of familiar services for development:
+**丰富的内核服务套件**
+   Zephyr 提供了许多开发者熟悉的服务：
 
-   * *Multi-threading Services* for cooperative, priority-based,
-     non-preemptive, and preemptive threads with optional round robin
-     time-slicing. Includes POSIX pthreads compatible API support.
+   * *多线程服务*：支持协作式、基于优先级的、非抢占式与抢占式线程，并支持可选的时间片轮转调度。
+     包含 POSIX pthreads 兼容 API 支持。
 
-   * *Interrupt Services* for compile-time registration of interrupt handlers.
+   * *中断服务*：支持在编译时注册中断处理函数。
 
-   * *Memory Allocation Services* for dynamic allocation and freeing of
-     fixed-size or variable-size memory blocks.
+   * *内存分配服务*：支持动态分配和释放固定尺寸或可变尺寸的内存块。
 
-   * *Inter-thread Synchronization Services* for binary semaphores,
-     counting semaphores, and mutex semaphores.
+   * *线程间同步服务*：支持二元信号量、计数信号量和互斥量。
 
-   * *Inter-thread Data Passing Services* for basic message queues, enhanced
-     message queues, and byte streams.
+   * *线程间数据传递服务*：支持基本消息队列、增强型消息队列和字节流。
 
-   * *Power Management Services* such as overarching, application or
-     policy-defined, System Power Management and fine-grained, driver-defined,
-     Device Power Management.
+   * *电源管理服务*：包括全局的、由应用或策略定义的系统级电源管理，以及细粒度的、由驱动程序定义的设备级电源管理。
 
-**Multiple Scheduling Algorithms**
-   Zephyr provides a comprehensive set of thread scheduling choices:
+**多种调度算法**
+   Zephyr 提供了一套全面的线程调度选项：
 
-   * Cooperative and Preemptive Scheduling
-   * Earliest Deadline First (EDF)
-   * Meta IRQ scheduling implementing "interrupt bottom half" or "tasklet"
-     behavior
-   * Timeslicing: Enables time slicing between preemptible threads of equal
-     priority
-   * Multiple queuing strategies:
+   * 协作式与抢占式调度
+   * 最早截止时间优先调度（Earliest Deadline First，EDF）
+   * Meta IRQ 调度：实现了“中断下半部”（bottom half）或 “tasklet” 行为
+   * 时间片调度：允许在相同优先级的可抢占线程之间进行时间片轮转
+   * 多种队列策略：
 
-     * Simple linked-list ready queue
-     * Red/black tree ready queue
-     * Traditional multi-queue ready queue
+     * 简单链表就绪队列
+     * 红黑树就绪队列
+     * 传统多队列就绪队列
 
 .. _zephyr_intro_configurability:
 
-**Highly configurable / Modular for flexibility**
-   Allows an application to incorporate *only* the capabilities it needs as it
-   needs them, and to specify their quantity and size.
+**高度可配置 / 模块化**
+   允许应用程序 *仅* 包含其所需的功能，并指定其数量和大小。
 
-**Cross Architecture**
-   Supports a wide variety of :ref:`supported boards<boards>` with different CPU
-   architectures and developer tools. Contributions have added support
-   for an increasing number of SoCs, platforms, and drivers.
+**跨架构支持**
+   支持多种采用不同 CPU 架构和开发工具的 :ref:`开发板 <boards>`。
+   在贡献者的帮助下，受支持的 SoC、平台和驱动程序数量正在不断增加。
 
-**Memory Protection**
-   Implements configurable architecture-specific stack-overflow protection,
-   kernel object and device driver permission tracking, and thread isolation
-   with thread-level memory protection on x86, ARC, and ARM architectures,
-   userspace, and memory domains.
+**内存保护**
+   实现了可配置的架构特定栈溢出保护、内核对象与设备驱动权限追踪，
+   以及在 x86、ARC 和 ARM 架构、用户空间和内存域上通过线程级内存保护实现的线程隔离。
 
-   For platforms without MMU/MPU and memory constrained devices, supports
-   combining application-specific code with a custom kernel to create a
-   monolithic image that gets loaded and executed on a system's hardware. Both
-   the application code and kernel code execute in a single shared address
-   space.
+   对于没有 MMU/MPU 且内存受限的设备，支持将应用程序相关的代码与内核结合在一起，
+   创建一个在硬件上加载、运行的单一镜像。应用程序代码和内核代码运行在同一个共享地址空间。
 
-**Compile-time resource definition**
-   Allows system resources to be defined at compile-time, which reduces code
-   size and increases performance for resource-limited systems.
+**编译时定义资源**
+   系统资源在编译时定义，以减小代码量、增强代码性能。
 
-**Optimized Device Driver Model**
-   Provides a consistent device model for configuring the drivers that are part
-   of the platform/system and a consistent model for initializing all the
-   drivers configured into the system and allows the reuse of drivers across
-   platforms that have common devices/IP blocks.
+**优化的设备驱动模型**
+   提供统一的设备模型用于配置平台/系统中的驱动程序，以及为初始化系统中所有已配置的驱动程序提供统一的模型，
+   并允许在具有通用的设备/IP 模块的不同平台上复用驱动程序。
 
-**Devicetree Support**
-   Use of :ref:`devicetree <dt-guide>` to describe hardware.
-   Information from devicetree is used to create the application image.
+**设备树支持**
+   使用 :ref:`设备树 <dt-guide>` 来描述硬件。设备树中的信息被用于创建应用镜像。
 
-**Native Networking Stack supporting multiple protocols**
-   Networking support is fully featured and optimized, including LwM2M and BSD
-   sockets compatible support.  OpenThread support (on Nordic chipsets) is also
-   provided - a mesh network designed to securely and reliably connect hundreds
-   of products around the home.
+**支持多种协议的原生网络栈**
+   网络功能完备且经过优化，包括对 LwM2M 和 BSD sockets 的兼容支持。
+   同时在 Nordic 芯片上提供 OpenThread 支持 —— 该 Mesh 网络旨在安全、可靠地连接家庭中的数百个产品。
 
-**Bluetooth Low Energy 5.0 support**
-   Bluetooth 5.0 compliant (ESR10) and Bluetooth Low Energy Controller support
-   (LE Link Layer). Includes Bluetooth Mesh and a Bluetooth qualification-ready
-   Bluetooth controller.
+**低功耗蓝牙 5.0（BLE 5.0）支持**
+   符合蓝牙 5.0 标准（ESR10）并支持低功耗蓝牙控制器（LE 链路层）。
+   包含蓝牙 Mesh 和一个具备蓝牙认证资格的蓝牙控制器。
 
-   * Generic Access Profile (GAP) with all possible LE roles
-   * Generic Attribute Profile (GATT)
-   * Pairing support, including the Secure Connections feature from Bluetooth
-     4.2
-   * Clean HCI driver abstraction
-   * Raw HCI interface to run Zephyr as a Controller instead of a full Host
-     stack
-   * Verified with multiple popular controllers
-   * Highly configurable
+   * 通用访问规范（GAP）：支持所有可能的 LE 角色
+   * 通用属性规范（GATT）
+   * 配对支持：包括蓝牙 4.2 的安全连接功能
+   * 清晰的 HCI 驱动抽象层
+   * 原始 HCI 接口：可将 Zephyr 作为控制器运行，而非完整的 Host 协议栈
+   * 已在多种主流控制器上通过验证
+   * 高度可配置
 
-   Mesh Support:
+   Mesh 支持：
 
-   * Relay, Friend Node, Low-Power Node (LPN) and GATT Proxy features
-   * Both Provisioning bearers supported (PB-ADV & PB-GATT)
-   * Highly configurable, fitting in devices with at least 16k RAM
+   * 支持中继、朋友节点、低功耗节点（LPN）和 GATT 代理功能
+   * 支持两种配网承载层（PB-ADV 和 PB-GATT）
+   * 高度可配置：能够运行在 RAM 至少为 16k 的设备上
 
-**Native Linux, macOS, and Windows Development**
-   A command-line CMake build environment runs on popular developer OS
-   systems. A native port (:zephyr:board:`native_sim <native_sim>`) lets you build and run Zephyr as a native
-   application on Linux, aiding development and testing.
+**原生 Linux、macOS 和 Windows 开发**
+   基于命令行的 CMake 构建环境可在主流的开发者操作系统上运行。
+   通过原生移植（:zephyr:board:`native_sim <native_sim>`），
+   可以在 Linux 上将 Zephyr 作为原生应用来编译和运行，从而辅助开发和测试工作。
 
-**Virtual File System Interface with ext2, FatFs, and LittleFS Support**
-   ext2, LittleFS and FatFS support; FCB (Flash Circular Buffer) for memory constrained
-   applications.
+**支持 ext2、FatFS 和 LittleFS 的虚拟文件系统接口**
+   支持 ext2、LittleFS 和 FatFS，以及为内存受限应用提供的 Flash 环形缓冲区（FCB）。
 
-**Powerful multi-backend logging Framework**
-   Support for log filtering, object dumping, panic mode, multiple backends
-   (memory, networking, filesystem, console, ...) and integration with the shell
-   subsystem.
+**强大的多后端日志框架**
+   支持日志过滤、对象转储、Panic 模式、多后端（内存、网络、文件系统、控制台等），
+   以及与 Shell 子系统的集成。
 
-**User friendly and full-featured Shell interface**
-   A multi-instance shell subsystem with user-friendly features such as
-   autocompletion, wildcards, coloring, metakeys (arrows, backspace, ctrl+u,
-   etc.) and history. Support for static commands and dynamic sub-commands.
+**用户友好且功能完备的 Shell 接口**
+   具备多实例功能的 Shell 子系统，提供用户友好的特性，包括：
+   自动补全、通配符、高亮、Meta 键（方向键、退格键、Ctrl+U 等）以及命令历史记录。
+   支持静态命令与动态子命令。
 
-**Settings on non-volatile storage**
-   The settings subsystem gives modules a way to store persistent per-device
-   configuration and runtime state. Settings items are stored as key-value pair
-   strings.
+**在非易失性存储上保存设置**
+   Settings 子系统为模块提供了一种储存设备级持久化配置和运行时状态的方式。
+   设置项以键值对字符串的形式储存。
 
-**Non-volatile storage (NVS)**
-  NVS allows storage of binary blobs, strings, integers, longs, and any
-  combination of these.
+**非易失性存储（NVS）**
+  NVS 支持储存二进制数据块、字符串、整数、长整数，以及这些数据类型的任意组合。
 
-**Native port**
-  :zephyr:board:`Native sim <native_sim>` allows running Zephyr as a Linux application with support
-  for various subsystems and networking.
+**原生移植**
+  :zephyr:board:`Native sim <native_sim>` 支持将 Zephyr 作为一个支持各种子系统和网络的 Linux 应用程序运行。
 
 
 .. include:: ../../README.rst
    :start-after: start_include_here
 
 
-Fundamental Terms and Concepts
-******************************
+基本术语和概念
+**************
 
-See :ref:`glossary`
+参见 :ref:`术语表 <glossary>`
