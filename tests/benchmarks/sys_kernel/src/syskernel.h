@@ -9,22 +9,31 @@
 #ifndef SYSKERNEK_H
 #define SYSKERNEK_H
 
-#include <timestamp.h>
+#include <zephyr/timestamp.h>
 
 #include <stdio.h>
-#include <toolchain.h>
+#include <zephyr/toolchain.h>
 
 #define STACK_SIZE 2048
-#define NUMBER_OF_LOOPS 5000
+#if CONFIG_SRAM_SIZE <= 32
+#define NUMBER_OF_LOOPS 100
+#else
+#define NUMBER_OF_LOOPS 1000
+#endif
 
-extern char thread_stack1[STACK_SIZE];
-extern char thread_stack2[STACK_SIZE];
+
+K_THREAD_STACK_DECLARE(thread_stack1, STACK_SIZE);
+K_THREAD_STACK_DECLARE(thread_stack2, STACK_SIZE);
+extern struct k_thread thread_data1;
+extern struct k_thread thread_data2;
 
 extern FILE *output_file;
 
 extern const char sz_success[];
 extern const char sz_partial[];
 extern const char sz_fail[];
+
+extern uint32_t number_of_loops;
 
 #define sz_module_title_fmt	"\nMODULE: %s"
 #define sz_module_result_fmt	"\n\nPROJECT EXECUTION %s\n"
@@ -47,6 +56,8 @@ int sema_test(void);
 int lifo_test(void);
 int fifo_test(void);
 int stack_test(void);
+int malloc_test(void);
+int mem_slab_test(void);
 void begin_test(void);
 
 static inline uint32_t BENCH_START(void)

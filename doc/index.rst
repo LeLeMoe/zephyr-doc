@@ -1,46 +1,122 @@
 ..
-    Zephyr Project documentation master file
+    Zephyr Project documentation main file
 
-Zephyr Project 学习文档
+.. _zephyr-home:
+
+Zephyr Project Documentation
 ############################
 
-欢迎阅读 Zephyr 项目的学习文档，当前文档对应的 Zephyr 版本是 |version|!
+.. only:: release
 
-您也可以查看其它版本的文档：
+   Welcome to the Zephyr Project's documentation for version |version|.
 
-`Zephyr 1.6.0`_
+   Documentation for the latest (main) development branch of Zephyr
+   can be found at https://docs.zephyrproject.org/
 
-总目录
-********
+.. only:: (development or daily)
+
+   **Welcome to the Zephyr Project's documentation
+   for the main tree under development** (version |version|).
+
+Use the version selection menu on the left to view
+documentation for a specific version of Zephyr.
+
+
+.. raw:: html
+
+   <ul class="grid">
+       <li class="grid-item">
+	   <a href="introduction/index.html">
+	       <img alt="" src="_static/images/kite.png"/>
+	       <h2>Introduction</h2>
+	   </a>
+	   <p>Architecture, features &amp; licensing details</p>
+       </li>
+       <li class="grid-item">
+	   <a href="develop/getting_started/index.html">
+               <span class="grid-icon fa fa-map-signs"></span>
+	       <h2>Getting Started Guide</h2>
+	   </a>
+	   <p>Set up Zephyr, build &amp; run a sample application</p>
+       </li>
+       <li class="grid-item">
+	   <a href="samples/index.html">
+               <span class="grid-icon fa fa-cogs"></span>
+	       <h2>Samples and Demos</h2>
+	   </a>
+	   <p>Explore samples and demos for various boards</p>
+       </li>
+       <li class="grid-item">
+	   <a href="boards/index.html">
+               <span class="grid-icon fa fa-object-group"></span>
+	       <h2>Supported Boards</h2>
+	   </a>
+	   <p>List of supported boards and platforms</p>
+       </li>
+       <li class="grid-item">
+	   <a href="hardware/index.html">
+               <span class="grid-icon fa fa-sign-in"></span>
+	       <h2>Hardware Support</h2>
+	   </a>
+	   <p>Supported hardware and porting guides</p>
+       </li>
+       <li class="grid-item">
+	   <a href="security/index.html">
+               <span class="grid-icon fa fa-lock"></span>
+	       <h2>Security</h2>
+	   </a>
+	   <p>Security processes and guidelines</p>
+       </li>
+       <li class="grid-item">
+	   <a href="services/index.html">
+               <span class="grid-icon fa fa-puzzle-piece"></span>
+	       <h2>OS Services</h2>
+	   </a>
+	   <p>OS Services and usage guides</p>
+       </li>
+       <li class="grid-item">
+	   <a href="contribute/index.html">
+               <span class="grid-icon fa fa-github"></span>
+	       <h2>Contribution Guidelines</h2>
+	   </a>
+	   <p>How to submit patches and contribute to Zephyr</p>
+       </li>
+   </ul>
+
+For information about the changes and additions for past releases, please
+consult the published :ref:`zephyr_release_notes` documentation.
+
+The Zephyr OS is provided under the `Apache 2.0 license`_ (as found in
+the LICENSE file in the project's `GitHub repo`_).  The Zephyr OS also
+imports or reuses packages, scripts, and other files that use other
+licensing, as described in :ref:`Zephyr_Licensing`.
 
 .. toctree::
    :maxdepth: 1
+   :hidden:
 
-   introduction/introducing_zephyr.rst
-   getting_started/getting_started.rst
-   boards/boards.rst
-   kernel/kernel.rst
-   application/application.rst
-   porting/porting.rst
-   drivers/drivers.rst
-   subsystems/subsystems.rst
-   api/api.rst
-   samples/samples.rst
-   reference/kconfig/index.rst
-   contribute/code.rst
-   release-notes.rst
-   LICENSING.rst
-   glossary.rst
-
-您也可以访问 Zephyr 项目的 `Wiki`_ 查更多信息。
-
+   introduction/index.rst
+   develop/index.rst
+   kernel/index.rst
+   services/index.rst
+   build/index.rst
+   connectivity/index.rst
+   hardware/index.rst
+   contribute/index.rst
+   project/index.rst
+   security/index.rst
+   safety/index.rst
+   samples/index.rst
+   boards/index.rst
+   releases/index.rst
 
 Indices and Tables
 ******************
 
+* :ref:`glossary`
 * :ref:`genindex`
 
-* :ref:`search`
+.. _Apache 2.0 license:
+   https://github.com/zephyrproject-rtos/zephyr/blob/main/LICENSE
 
-.. _Wiki: https://wiki.zephyrproject.org/view/Main_Page
-.. _Zephyr 1.6.0: http://iot-fans.xyz/zephyr/doc/v1.6.0/
+.. _GitHub repo: https://github.com/zephyrproject-rtos/zephyr

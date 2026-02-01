@@ -1,79 +1,75 @@
 /*
  * Copyright (c) 2016 Intel Corporation
+ * Copyright (c) 2020 Nordic Semiconductor ASA
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
 /**
- * @file Sample app to demonstrate PWM.
- *
- * This app uses PWM[0].
+ * @file Sample app to demonstrate PWM-based LED fade
  */
 
-#include <zephyr.h>
-#include <misc/printk.h>
-#include <device.h>
-#include <pwm.h>
+#include <zephyr/kernel.h>
+#include <zephyr/sys/printk.h>
+#include <zephyr/device.h>
+#include <zephyr/drivers/pwm.h>
 
-#if defined(CONFIG_SOC_STM32F401XE) || defined(CONFIG_SOC_STM32L476XX)
-#define PWM_DRIVER CONFIG_PWM_STM32_2_DEV_NAME
-#define PWM_CHANNEL 1
-#elif CONFIG_SOC_STM32F103XB
-#define PWM_DRIVER CONFIG_PWM_STM32_1_DEV_NAME
-#define PWM_CHANNEL 1
-#elif defined(CONFIG_SOC_QUARK_SE_C1000) || defined(CONFIG_SOC_QUARK_D2000)
-#define PWM_DRIVER CONFIG_PWM_QMSI_DEV_NAME
-#define PWM_CHANNEL 0
-#else
-#error "Choose supported PWM driver"
-#endif
+#define PWM_LED_ALIAS(i) DT_ALIAS(_CONCAT(pwm_led, i))
+#define PWM_LED_IS_OKAY(i) DT_NODE_HAS_STATUS_OKAY(DT_PARENT(PWM_LED_ALIAS(i)))
+#define PWM_LED(i, _) IF_ENABLED(PWM_LED_IS_OKAY(i), (PWM_DT_SPEC_GET(PWM_LED_ALIAS(i)),))
 
-/*
- * 50 is flicker fusion threshold. Modulated light will be perceived
- * as steady by our eyes when blinking rate is at least 50.
- */
-#define PERIOD (USEC_PER_SEC / 50)
+#define MAX_LEDS 10
+static const struct pwm_dt_spec pwm_leds[] = {LISTIFY(MAX_LEDS, PWM_LED, ())};
 
-/* in micro second */
-#define FADESTEP	2000
+#define NUM_STEPS	50U
+#define SLEEP_MSEC	25U
 
-void main(void)
+int main(void)
 {
-	struct device *pwm_dev;
-	uint32_t pulse_width = 0;
-	uint8_t dir = 0;
+	uint32_t pulse_widths[ARRAY_SIZE(pwm_leds)];
+	uint32_t steps[ARRAY_SIZE(pwm_leds)];
+	uint8_t dirs[ARRAY_SIZE(pwm_leds)];
+	int ret;
 
-	printk("PWM demo app-fade LED\n");
+	printk("PWM-based LED fade. Found %d LEDs\n", ARRAY_SIZE(pwm_leds));
 
-	pwm_dev = device_get_binding(PWM_DRIVER);
-	if (!pwm_dev) {
-		printk("Cannot find %s!\n", PWM_DRIVER);
-		return;
+	for (size_t i = 0; i < ARRAY_SIZE(pwm_leds); i++) {
+		pulse_widths[i] = 0;
+		steps[i] = pwm_leds[i].period / NUM_STEPS;
+		dirs[i] = 1U;
+		if (!pwm_is_ready_dt(&pwm_leds[i])) {
+			printk("Error: PWM device %s is not ready\n", pwm_leds[i].dev->name);
+			return 0;
+		}
 	}
 
 	while (1) {
-		if (pwm_pin_set_usec(pwm_dev, PWM_CHANNEL,
-					PERIOD, pulse_width)) {
-			printk("pwm pin set fails\n");
-			return;
-		}
+		for (size_t i = 0; i < ARRAY_SIZE(pwm_leds); i++) {
+			ret = pwm_set_pulse_dt(&pwm_leds[i], pulse_widths[i]);
+			if (ret) {
+				printk("Error %d: failed to set pulse width for LED %d\n", ret, i);
+			}
+			printk("LED %d: Using pulse width %d%%\n", i,
+			       100 * pulse_widths[i] / pwm_leds[i].period);
 
-		if (dir) {
-			if (pulse_width < FADESTEP) {
-				dir = 0;
-				pulse_width = 0;
+			if (dirs[i] == 1) {
+				if (pulse_widths[i] + steps[i] >= pwm_leds[i].period) {
+					pulse_widths[i] = pwm_leds[i].period;
+					dirs[i] = 0U;
+				} else {
+					pulse_widths[i] += steps[i];
+				}
 			} else {
-				pulse_width -= FADESTEP;
-			}
-		} else {
-			pulse_width += FADESTEP;
-
-			if (pulse_width >= PERIOD) {
-				dir = 1;
-				pulse_width = PERIOD;
+				if (pulse_widths[i] <= steps[i]) {
+					pulse_widths[i] = 0;
+					dirs[i] = 1U;
+				} else {
+					pulse_widths[i] -= steps[i];
+				}
 			}
 		}
 
-		k_sleep(MSEC_PER_SEC);
+		k_sleep(K_MSEC(SLEEP_MSEC));
 	}
+	return 0;
 }

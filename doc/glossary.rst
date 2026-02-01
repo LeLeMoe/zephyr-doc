@@ -1,56 +1,235 @@
+:orphan:
+
 .. _glossary:
 
-术语表
+Glossary of Terms
 #################
 
 .. glossary::
    :sorted:
 
    API
-      
-	  （应用程序编程接口）构建软件输入输出的程序和协议的集合。
+      (Application Program Interface) A defined set of routines and protocols for
+      building application software.
 
-   应用程序
-      
-	  用户提供的相关文件的集合。Zephyr 的编译系统使用这些文件为特定的板级配置编译应用程序镜像。它包括应用程序相关的代码、内核的配置设置以及至少一个 Makefile 文件。
-	  
-	  应用程序的内核配置指引编译系统高效地利用板子的资源创建自定义内核。
-	  
-	  如果不需要任何板子相关的功能，一个应用程序可以被多个板级配置（包括不同 CPU 架构的板子）所编译。
-	  
-   应用程序镜像
-      
-	  被板子加载并执行的二进制文件。
-	  
-	  每个应用程序镜像既包含应用程序相关的代码，还包含支撑这些应用程序的 Zephyr 内核代码。应用程序代码和内核代码被编译为单一的、完全链接的二进制文件。
-	  
-	  应用程序加载到板子上后，它将控制整个系统进行初始化，并作为系统的专有应用。应用程序代码和内核代码都将在一个单一的共享地址空间上以特权级的方式运行。
+   application
+      The set of user-supplied files that the Zephyr build system uses
+      to build an application image for a specified board configuration.
+      It can contain application-specific code, kernel configuration settings,
+      and at least one CMakeLists.txt file.
+      The application's kernel configuration settings direct the build system
+      to create a custom kernel that makes efficient use of the board's
+      resources.
+      An application can sometimes be built for more than one type of board
+      configuration (including boards with different CPU architectures),
+      if it does not require any board-specific capabilities.
 
-   开发板
-      
-	  一个带有一系列设备和功能的目标系统，它可以加载、执行应用程序镜像。它既可以是实际的硬件系统，也可以是运行在 QEMU 下的仿真系统。
-	  
-	  Zephyr 内核支持 :ref:`大量的开发板 <boards>`。
+   application image
+      A binary file that is loaded and executed by the board for which
+      it was built.
+      Each application image contains both the application's code and the
+      Zephyr kernel code needed to support it. They are compiled as a single,
+      fully-linked binary.
+      Once an application image is loaded onto a board, the image takes control
+      of the system, initializes it, and runs as the system's sole application.
+      Both application code and kernel code execute as privileged code
+      within a single shared address space.
 
-   开发板配置
-      
-	  一系列的内核配置选项，指定内核如何利用开发板上的设备。
-	  
-	  Zephyr 编译系统为它所支持的每个开发板都定义了一个或多个开发板配置。如果需要，应用程序可以覆盖编译系统指定的内核配置项。
+   architecture
+      An instruction set architecture (ISA) along with a programming model.
+
+   board
+      A target system with a defined set of devices and capabilities,
+      which can load and execute an application image. It may be an actual
+      hardware system or a simulated system running under QEMU. A board can
+      contain one or more :term:`SoCs <SoC>`.
+      The Zephyr kernel supports a :ref:`variety of boards <boards>`.
+
+   board configuration
+      A set of kernel configuration options that specify how the devices
+      present on a board are used by the kernel.
+      The Zephyr build system defines one or more board configurations
+      for each board it supports. The kernel configuration settings that are
+      specified by the build system can be over-ridden by the application,
+      if desired.
+
+   board name
+      The human-readable name of a :term:`board`. Uniquely and descriptively
+      identifies a particular system, but does not include additional
+      information that may be required to actually build a Zephyr image for it.
+      See :ref:`board_terminology` for additional details.
+
+   board qualifiers
+      The set of additional tokens, separated by a forward slash (``/``) that
+      follow the :term:`board name` (and optionally :term:`board revision`) to
+      form the :term:`board target`. The currently accepted qualifiers are
+      :term:`SoC`, :term:`CPU cluster` and :term:`variant`.
+      See :ref:`board_terminology` for additional details.
+
+   board revision
+      An optional version string that identifies a particular revision of a
+      hardware system. This is useful to avoid duplication of board files
+      whenever small changes are introduced to a hardware system.
+      See :ref:`porting_board_revisions` and :ref:`application_board_version`
+      for more information.
+
+   board target
+     The full string that can be provided to any of the Zephyr build tools to
+     compile and link an image for a particular hardware system. This string
+     uniquely identifies the combination of :term:`board name`, :term:`board
+     revision` and :term:`board qualifiers`.
+     See :ref:`board_terminology` for additional details.
+
+   CPU cluster
+     A group of one or more :term:`CPU cores <CPU core>`, all executing the same image
+     within the same address space and in a symmetrical (SMP) configuration.
+     Only :term:`CPU cores <CPU core>` of the same :term:`architecture` can be in a single
+     cluster. Multiple CPU clusters (each of one or more cores) can coexist in
+     the same :term:`SoC`.
+
+   CPU core
+     A single processing unit, with its own Program Counter, executing program
+     instructions sequentially. CPU cores are part of a :term:`CPU cluster`,
+     which can contain one or more cores.
+
+   device runtime power management
+      Device Runtime Power Management (PM) refers the capability of devices to
+      save energy independently of the system power state. Devices will keep
+      reference of their usage and will automatically be suspended or resumed.
+      This feature is enabled via the :kconfig:option:`CONFIG_PM_DEVICE_RUNTIME`
+      Kconfig option.
+
+   idle thread
+      A system thread that runs when there are no other threads ready to run.
 
    IDT
-      
-	  （中断描述符表）x86 架构使用的用于实现中断向量表的一个数据结构。IDT 用于判断对中断和异常的正确响应。
-	  
+      (Interrupt Descriptor Table) a data structure used by the x86
+      architecture to implement an interrupt vector table. The IDT is used
+      to determine the correct response to interrupts and exceptions.
+
+   internal API
+      Any internal function, structure or macro defined anywhere in the Zephyr
+      source tree. Internal APIs are intended to "extend" Zephyr, and are to be
+      used only between certain :term:`software components <software
+      component>`, usually in-tree but in some cases out-of-tree (e.g. adding an
+      out-of-tree architecture or driver). Applications must not invoke
+      internal APIs outside their own scope. The context where the API is
+      called or implemented is well defined. For example, functions prefixed
+      with ``arch_`` are intended for use by the Zephyr kernel to invoke
+      architecture-specific code. Internal APIs are mostly kept stable, but with
+      fewer guarantees than :term:`public APIs <public API>`.
 
    ISR
-      
-	  (中断服务例程) 也被叫做中断 handler。ISR 是一个回调函数，它的执行由硬件（或者软件中断指令）中断触发，用于处理需要中断当前代码执行的高优先级条件。
+      (Interrupt Service Routine) Also known as an interrupt handler, an ISR
+      is a callback function whose execution is triggered by a hardware
+      interrupt (or software interrupt instructions) and is used to handle
+      high-priority conditions that require interrupting the current code
+      executing on the processor.
 
    kernel
-      
-      Zephyr 提供的实现其内核的相关文件的集合，包括核心服务、设备驱动程序、网络协议栈等。
+      The set of Zephyr-supplied files that implement the Zephyr kernel,
+      including its core services, device drivers, network stack, and so on.
+
+   power domain
+      A power domain is a collection of devices for which power is
+      applied and removed collectively in a single action. Power
+      domains are represented by :c:struct:`device`.
+
+   power gating
+      Power gating reduces power consumption by shutting off areas of an
+      integrated circuit that are not in use.
+
+   private API
+      Any function, structure or macro defined anywhere in the Zephyr source
+      tree which are only intended for consumption inside the
+      :term:`software component` where they are defined. Private APIs may change
+      at any time and must not be used by code outside the corresponding
+      software component.
+
+   public API
+      Any function, structure or macro defined inside the ``include/zephyr``
+      folder that is not explicitly marked as private. Public APIs are intended
+      for consumption by any and all in-tree or out-of-tree :term:`software
+      components <software component>`. Public APIs cannot be modified without
+      following the provisions described in the :ref:`API lifecycle
+      <api_lifecycle>` section, which means they provide guarantees that they
+      will remain stable over time.
+
+   SoC
+      A `System on a chip`_, that is, an integrated circuit that contains at
+      least one :term:`CPU cluster` (in turn with at least one :term:`CPU core`),
+      as well as peripherals and memory.
+
+   SoC family
+      One or more :term:`SoCs <SoC>` or :term:`SoC series` that share enough
+      in common to consider them related and under a single family denomination.
+
+   SoC series
+      A number of different :term:`SoCs <SoC>` that share similar characteristics and
+      features, and that the vendor typically names and markets together.
+
+   software component
+      A software component is a self-contained, modular, and replaceable part of
+      the Zephyr source code. A driver, a subsystem or an applications are all
+      examples of software components present in Zephyr.
+
+   subsystem
+       A subsystem refers to a logically distinct part of the operating system
+       that handles specific functionality or provides certain services.
+
+   system power state
+      System power states describe the power consumption of the system as a
+      whole. System power states are represented by :c:enum:`pm_state`.
+
+   variant
+      In the context of :term:`board qualifiers`, a variant designates a
+      particular type or configuration of a build for a combination of :term:`SoC`
+      and :term:`CPU cluster`. Common uses of the variant concept include
+      introducing both secure and non-secure builds for platforms with Trusted
+      Execution Environment support, or selecting the type of RAM used in a
+      build.
+
+   west
+      A multi-repo meta-tool developed for the Zephyr project. See :ref:`west`.
+
+   west installation
+      An obsolete term for a :term:`west workspace` used prior to west 0.7.
+
+   west manifest
+      A YAML file, usually named :file:`west.yml`, which describes projects, or
+      the Git repositories which make up a :term:`west workspace`, along with
+      additional metadata. See :ref:`west-basics` for general information
+      and :ref:`west-manifests` for details.
+
+   west manifest repository
+      The Git repository in a :term:`west workspace` which contains the
+      :term:`west manifest`. Its location is given by the :ref:`manifest.path
+      configuration option <west-config-index>`. See :ref:`west-basics`.
+
+   west project
+      Each of the entries in a :term:`west manifest`, which describe a Git
+      repository that will be cloned and managed by west when working with the
+      corresponding :term:`west manifest repository`. Note that a west project
+      is different from a :term:`zephyr module`, although many projects are also
+      modules. See :ref:`west-manifests-projects` for additional information.
+
+   west workspace
+      A folder on your system with a :file:`.west` subdirectory and a
+      :term:`west manifest repository` in it. You clone the Zephyr source code,
+      as well as that of its :term:`west projects <west project>` onto your
+      system by creating a west workspace using the ``west init`` command. See
+      :ref:`west-basics`.
 
    XIP
-      
-	  （就地执行）一种程序执行的方法，它直接在长期存储设备上执行程序，而无需将其拷贝到 RAM 中，这样做的好处是为动态数据（而非静态的程序代码）节约了可写的内存空间。 a method of 
+      (eXecute In Place) a method of executing programs directly from long
+      term storage rather than copying it into RAM, saving writable memory for
+      dynamic data and not the static program code.
+
+   zephyr module
+      A Git repository containing a :file:`zephyr/module.yml` file, used by the
+      Zephyr build system to integrate the source code and configuration files
+      of the module into a regular Zephyr build. Zephyr modules may be west
+      projects, but they do not have to. See :ref:`modules` for additional
+      details.
+
+.. _System on a chip: https://en.wikipedia.org/wiki/System_on_a_chip

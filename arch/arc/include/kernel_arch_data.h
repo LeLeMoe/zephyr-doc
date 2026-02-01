@@ -17,161 +17,221 @@
  * symbols" in the offsets.o module.
  */
 
-#ifndef _kernel_arch_data__h_
-#define _kernel_arch_data__h_
+#ifndef ZEPHYR_ARCH_ARC_INCLUDE_KERNEL_ARCH_DATA_H_
+#define ZEPHYR_ARCH_ARC_INCLUDE_KERNEL_ARCH_DATA_H_
+
+#include <zephyr/toolchain.h>
+#include <zephyr/linker/sections.h>
+#include <zephyr/arch/cpu.h>
+#include <vector_table.h>
+
+#ifndef _ASMLANGUAGE
+#include <zephyr/kernel.h>
+#include <zephyr/types.h>
+#include <zephyr/sys/util.h>
+#include <zephyr/sys/dlist.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <toolchain.h>
-#include <sections.h>
-#include <arch/cpu.h>
-#include <vector_table.h>
-
-#ifndef _ASMLANGUAGE
-#include <kernel.h>
-#include <nano_internal.h>
-#include <stdint.h>
-#include <misc/util.h>
-#include <misc/dlist.h>
-#endif
-
-#ifndef _ASMLANGUAGE
-
-struct _caller_saved {
-	/*
-	 * Saved on the stack as part of handling a regular IRQ or by the
-	 * kernel when calling the FIRQ return code.
-	 */
-};
-
-typedef struct _caller_saved _caller_saved_t;
-
-struct _irq_stack_frame {
-	uint32_t r0;
-	uint32_t r1;
-	uint32_t r2;
-	uint32_t r3;
-	uint32_t r4;
-	uint32_t r5;
-	uint32_t r6;
-	uint32_t r7;
-	uint32_t r8;
-	uint32_t r9;
-	uint32_t r10;
-	uint32_t r11;
-	uint32_t r12;
-	uint32_t r13;
-	uint32_t blink;
-	uint32_t lp_end;
-	uint32_t lp_start;
-	uint32_t lp_count;
+#ifdef CONFIG_ARC_HAS_SECURE
+struct arch_esf {
+#ifdef CONFIG_ARC_HAS_ZOL
+	uintptr_t lp_end;
+	uintptr_t lp_start;
+	uintptr_t lp_count;
+#endif /* CONFIG_ARC_HAS_ZOL */
 #ifdef CONFIG_CODE_DENSITY
 	/*
 	 * Currently unsupported. This is where those registers are
 	 * automatically pushed on the stack by the CPU when taking a regular
 	 * IRQ.
 	 */
-	uint32_t ei_base;
-	uint32_t ldi_base;
-	uint32_t jli_base;
+	uintptr_t ei_base;
+	uintptr_t ldi_base;
+	uintptr_t jli_base;
 #endif
-	uint32_t pc;
-	uint32_t status32;
+	uintptr_t r0;
+	uintptr_t r1;
+	uintptr_t r2;
+	uintptr_t r3;
+	uintptr_t r4;
+	uintptr_t r5;
+	uintptr_t r6;
+	uintptr_t r7;
+	uintptr_t r8;
+	uintptr_t r9;
+	uintptr_t r10;
+	uintptr_t r11;
+	uintptr_t r12;
+	uintptr_t r13;
+	uintptr_t blink;
+	uintptr_t pc;
+	uintptr_t sec_stat;
+	uintptr_t status32;
 };
-
-typedef struct _irq_stack_frame _isf_t;
-
-struct _callee_saved {
-	uint32_t sp; /* r28 */
+#else
+struct arch_esf {
+	uintptr_t r0;
+	uintptr_t r1;
+	uintptr_t r2;
+	uintptr_t r3;
+	uintptr_t r4;
+	uintptr_t r5;
+	uintptr_t r6;
+	uintptr_t r7;
+	uintptr_t r8;
+	uintptr_t r9;
+	uintptr_t r10;
+	uintptr_t r11;
+	uintptr_t r12;
+	uintptr_t r13;
+	uintptr_t blink;
+#ifdef CONFIG_ARC_HAS_ZOL
+	uintptr_t lp_end;
+	uintptr_t lp_start;
+	uintptr_t lp_count;
+#endif /* CONFIG_ARC_HAS_ZOL */
+#ifdef CONFIG_CODE_DENSITY
+	/*
+	 * Currently unsupported. This is where those registers are
+	 * automatically pushed on the stack by the CPU when taking a regular
+	 * IRQ.
+	 */
+	uintptr_t ei_base;
+	uintptr_t ldi_base;
+	uintptr_t jli_base;
+#endif
+	uintptr_t pc;
+	uintptr_t status32;
 };
-typedef struct _callee_saved _callee_saved_t;
+#endif
+
+typedef struct arch_esf _isf_t;
+
+
 
 /* callee-saved registers pushed on the stack, not in k_thread */
 struct _callee_saved_stack {
-	uint32_t r13;
-	uint32_t r14;
-	uint32_t r15;
-	uint32_t r16;
-	uint32_t r17;
-	uint32_t r18;
-	uint32_t r19;
-	uint32_t r20;
-	uint32_t r21;
-	uint32_t r22;
-	uint32_t r23;
-	uint32_t r24;
-	uint32_t r25;
-	uint32_t r26;
-	uint32_t fp; /* r27 */
+	uintptr_t r13;
+	uintptr_t r14;
+	uintptr_t r15;
+	uintptr_t r16;
+	uintptr_t r17;
+	uintptr_t r18;
+	uintptr_t r19;
+	uintptr_t r20;
+	uintptr_t r21;
+	uintptr_t r22;
+	uintptr_t r23;
+	uintptr_t r24;
+	uintptr_t r25;
+	uintptr_t r26;
+	uintptr_t fp; /* r27 */
+
+#ifdef CONFIG_USERSPACE
+#ifdef CONFIG_ARC_HAS_SECURE
+	uintptr_t user_sp;
+	uintptr_t kernel_sp;
+#else
+	uintptr_t user_sp;
+#endif
+#endif
 	/* r28 is the stack pointer and saved separately */
 	/* r29 is ILINK and does not need to be saved */
-	uint32_t r30;
+	uintptr_t r30;
+
+#ifdef CONFIG_ARC_HAS_ACCL_REGS
+	uintptr_t r58;
+#ifndef CONFIG_64BIT
+	uintptr_t r59;
+#endif /* !CONFIG_64BIT */
+#endif
+
+#ifdef CONFIG_FPU_SHARING
+	uintptr_t fpu_status;
+	uintptr_t fpu_ctrl;
+#ifdef CONFIG_FP_FPU_DA
+	uintptr_t dpfp2h;
+	uintptr_t dpfp2l;
+	uintptr_t dpfp1h;
+	uintptr_t dpfp1l;
+#endif
+#endif
+
+#ifdef CONFIG_DSP_SHARING
+#ifdef CONFIG_ARC_DSP_BFLY_SHARING
+	uintptr_t dsp_fft_ctrl;
+	uintptr_t dsp_bfly0;
+#endif
+	uintptr_t acc0_ghi;
+	uintptr_t acc0_glo;
+	uintptr_t dsp_ctrl;
+#endif
+
+#ifdef CONFIG_ARC_AGU_SHARING
+	uintptr_t agu_ap0;
+	uintptr_t agu_ap1;
+	uintptr_t agu_ap2;
+	uintptr_t agu_ap3;
+	uintptr_t agu_os0;
+	uintptr_t agu_os1;
+	uintptr_t agu_mod0;
+	uintptr_t agu_mod1;
+	uintptr_t agu_mod2;
+	uintptr_t agu_mod3;
+#ifdef CONFIG_ARC_AGU_MEDIUM
+	uintptr_t agu_ap4;
+	uintptr_t agu_ap5;
+	uintptr_t agu_ap6;
+	uintptr_t agu_ap7;
+	uintptr_t agu_os2;
+	uintptr_t agu_os3;
+	uintptr_t agu_mod4;
+	uintptr_t agu_mod5;
+	uintptr_t agu_mod6;
+	uintptr_t agu_mod7;
+	uintptr_t agu_mod8;
+	uintptr_t agu_mod9;
+	uintptr_t agu_mod10;
+	uintptr_t agu_mod11;
+#endif
+#ifdef CONFIG_ARC_AGU_LARGE
+	uintptr_t agu_ap8;
+	uintptr_t agu_ap9;
+	uintptr_t agu_ap10;
+	uintptr_t agu_ap11;
+	uintptr_t agu_os4;
+	uintptr_t agu_os5;
+	uintptr_t agu_os6;
+	uintptr_t agu_os7;
+	uintptr_t agu_mod12;
+	uintptr_t agu_mod13;
+	uintptr_t agu_mod14;
+	uintptr_t agu_mod15;
+	uintptr_t agu_mod16;
+	uintptr_t agu_mod17;
+	uintptr_t agu_mod18;
+	uintptr_t agu_mod19;
+	uintptr_t agu_mod20;
+	uintptr_t agu_mod21;
+	uintptr_t agu_mod22;
+	uintptr_t agu_mod23;
+#endif
+#endif
 	/*
-	 * No need to save r31 (blink), it's either alread pushed as the pc or
+	 * No need to save r31 (blink), it's either already pushed as the pc or
 	 * blink on an irq stack frame.
 	 */
 };
 
 typedef struct _callee_saved_stack _callee_saved_stack_t;
 
-#endif /* _ASMLANGUAGE */
-
-/* stacks */
-
-#define STACK_ALIGN_SIZE 4
-
-#define STACK_ROUND_UP(x) ROUND_UP(x, STACK_ALIGN_SIZE)
-#define STACK_ROUND_DOWN(x) ROUND_DOWN(x, STACK_ALIGN_SIZE)
-
-/*
- * Reason a thread has relinquished control: fibers can only be in the NONE
- * or COOP state, tasks can be one in the four.
- */
-#define _CAUSE_NONE 0
-#define _CAUSE_COOP 1
-#define _CAUSE_RIRQ 2
-#define _CAUSE_FIRQ 3
-
-#ifndef _ASMLANGUAGE
-
-struct _thread_arch {
-
-	/* interrupt key when relinquishing control */
-	uint32_t intlock_key;
-
-	/* one of the _CAUSE_xxxx definitions above */
-	int relinquish_cause;
-
-	/* return value from _Swap */
-	unsigned int return_value;
-
-#ifdef CONFIG_ARC_STACK_CHECKING
-	/* top of stack for hardware stack checking */
-	uint32_t stack_top;
-#endif
-};
-
-typedef struct _thread_arch _thread_arch_t;
-
-struct _kernel_arch {
-
-	char *rirq_sp; /* regular IRQ stack pointer base */
-
-	/*
-	 * FIRQ stack pointer is installed once in the second bank's SP, so
-	 * there is no need to track it in _kernel.
-	 */
-
-};
-
-typedef struct _kernel_arch _kernel_arch_t;
-
-#endif /* _ASMLANGUAGE */
-
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* _kernel_arch_data__h_ */
+#endif /* _ASMLANGUAGE */
+
+#endif /* ZEPHYR_ARCH_ARC_INCLUDE_KERNEL_ARCH_DATA_H_ */

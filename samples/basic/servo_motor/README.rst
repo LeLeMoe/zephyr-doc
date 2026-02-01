@@ -1,32 +1,64 @@
-.. _servo-motor-sample:
+.. zephyr:code-sample:: servo-motor
+   :name: Servomotor
+   :relevant-api: pwm_interface
 
-PWM: 伺服电机
-################
+   Drive a servomotor using the PWM API.
 
-概览
+Overview
 ********
 
-此示例使用PWM驱动一个伺服电机。
+This is a sample app which drives a servomotor using the :ref:`PWM API <pwm_api>`.
 
-此程序针对的是ROB-09065伺服电机。更改PWM控制信号，伺服电机可旋转0至180度间的任意角度。它所对应的PWM脉宽在700微秒和2300微秒之间。电机被编程为在180度范围内来回旋转。
+The sample rotates a servomotor back and forth in the 180 degree range with a
+PWM control signal.
 
-由于不同的伺服电机需要不同的PWM脉宽，如果你使用的是不同的伺服电机，请在程序中修改脉宽。
+This app is targeted for servomotor ROB-09065. The corresponding PWM pulse
+widths for a 0 to 180 degree range are 700 to 2300 microseconds, respectively.
+Different servomotors may require different PWM pulse widths, and you may need
+to modify the source code if you are using a different servomotor.
 
-接线
+Requirements
+************
+
+The sample requires a servomotor whose signal pin is connected to a pin driven
+by PWM. The servo must be defined in Devicetree using the ``pwm-servo``
+compatible (part of the sample) and setting its node label to ``servo``. You
+will need to do something like this:
+
+.. code-block:: devicetree
+
+   / {
+       servo: servo {
+           compatible = "pwm-servo";
+           pwms = <&pwm0 1 PWM_MSEC(20) PWM_POLARITY_NORMAL>;
+           min-pulse = <PWM_USEC(700)>;
+           max-pulse = <PWM_USEC(2500)>;
+       };
+   };
+
+Note that a commonly used period value is 20 ms. See
+:zephyr_file:`samples/basic/servo_motor/boards/bbc_microbit.overlay` for an
+example.
+
+Wiring
 ******
 
-Arduino 101 和 Quark D2000 CRB
-===============================
+BBC micro:bit
+=============
 
-需要将电机的红色连至5V，黑线接地，且白线通过扩展板接至PWM 0。
+You will need to connect the motor's red wire to external 5V, the black wire to
+ground and the white wire to the SCL pin, i.e. pin P19 on the edge connector.
 
-编译和运行
+Building and Running
 ********************
 
-此示例可为多块开发板编译，此处以arduino_101开发板为例:
+The sample has a devicetree overlay for the :zephyr:board:`bbc_microbit`.
 
-.. code-block:: console
+This sample can be built for multiple boards, in this example we will build it
+for the bbc_microbit board:
 
-   $ cd samples/basic/servo_motor
-   $ make BOARD=arduino_101
-   $ make BOARD=arduino_101 flash
+.. zephyr-app-commands::
+   :zephyr-app: samples/basic/servo_motor
+   :board: bbc_microbit
+   :goals: build flash
+   :compact:

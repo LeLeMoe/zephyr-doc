@@ -1,79 +1,98 @@
-.. _dhcpv4-client-sample:
+.. zephyr:code-sample:: dhcpv4-client
+   :name: DHCPv4 client
+   :relevant-api: dhcpv4 net_mgmt
 
-DHCPv4 客户端应用示例
-################################
+   Start a DHCPv4 client to obtain an IPv4 address from a DHCPv4 server.
 
-概览
+Overview
 ********
 
-此应用程序启动一个 DHCPv4 客户端，从 DHCPv4 服务器端获取一个 IPv4 地址，并向串口控制台打印地址、租用期、掩码以及路由器信息。
+This application starts a DHCPv4 client, gets an IPv4 address from the
+DHCPv4 server, and prints address, lease time, netmask and router
+information to a serial console.
 
-需求
+Requirements
 ************
 
-- :ref:`使用 QEMU 网络仿真 <networking_with_qemu>`
+- :ref:`networking_with_host`
 
-编译和运行
+Building and Running
 ********************
 
-QEMU x86
-========
+Running DHCPv4 client in Linux Host
+===================================
 
-本操作指南用于在 Linux 主机中通过 QEMU 使用此示例应用程序，以从 Linux 主机中的 DHCPv4 服务器协商 IP 地址。
+These are instructions for how to use this sample application using
+QEMU on a Linux host to negotiate IP address from DHCPv4 server (kea) running
+on Linux host.
 
-以下为自述文件:
+To use QEMU for testing, follow the :ref:`networking_with_qemu` guide.
 
-    从 net-tools 运行 'loop_socat' 和 'loop-slip-tap' 脚本。
-
-    https://gerrit.zephyrproject.org/r/gitweb?p=net-tools.git;a=blob;f=README
-
-.. code-block:: console
-
-    $ ./loop_socat.sh
-
-在另一窗口:
+Here's a sample server configuration file '/etc/kea/kea-dhcp4.conf'
+used to configure the DHCPv4 server:
 
 .. code-block:: console
 
-    $ sudo ./loop-slip-tap.sh
+    {
+        "Dhcp4": {
+            "interfaces-config": {
+                "interfaces": [ "tap0" ],
+                "dhcp-socket-type": "raw"
+            },
 
-'/etc/dhcpd/dhcp.conf' 为服务器配置文件示例，它用于配置 DHCPv4 服务器：
+            "valid-lifetime": 7200,
+
+            "subnet4": [
+                {
+                    "id": 1,
+                    "subnet": "192.0.2.0/24",
+                    "pools": [ { "pool": "192.0.2.10 - 192.0.2.100" } ],
+                    "option-data": [
+                        {
+                            "name": "routers",
+                            "data": "192.0.2.2"
+                        },
+                        {
+                            "name": "domain-name-servers",
+                            "data": "8.8.8.8"
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+
+Use another terminal window to start up a DHCPv4 server on the Linux host,
+using this conf file:
 
 .. code-block:: console
 
-   log-facility local7;
-   default-lease-time 600;
-   max-lease-time 7200;
+    $ sudo kea-dhcp4 -c /etc/kea/kea-dhcp4.conf
 
-   subnet 192.0.2.0 netmask 255.255.255.0 {
-     range 192.0.2.10 192.0.2.100;
-   }
+Run Zephyr samples/net/dhcpv4_client application in QEMU:
 
-在 Linux 主机中使用另一终端窗口启动一个 DHCPv4 服务器，使用以下 conf 文件：
+.. zephyr-app-commands::
+   :zephyr-app: samples/net/dhcpv4_client
+   :host-os: unix
+   :board: qemu_x86
+   :goals: run
+   :compact:
 
-.. code-block:: console
-
-    $ sudo dhcpd -d -4 -cf /etc/dhcp/dhcpd.conf -lf /var/lib/dhcp/dhcpd.leases tap0
-
-在 QEMU 中运行 samples/net/dhcpv4_client 应用示例:
+Once DHCPv4 client address negotiation completed with server, details
+are shown like this:
 
 .. code-block:: console
 
-    $ cd $ZEPHYR_BASE/samples/net/dhcpv4_client
-    $ make pristine && make qemu
+    [00:00:00.000,000] <inf> net_dhcpv4_client_sample: Run dhcpv4 client
+    [00:00:00.000,000] <inf> net_dhcpv4_client_sample: Start on slip: index=1
+    [00:00:07.080,000] <inf> net_dhcpv4: Received: 192.0.2.10
+    [00:00:07.080,000] <inf> net_dhcpv4_client_sample:    Address[1]: 192.0.2.10
+    [00:00:07.080,000] <inf> net_dhcpv4_client_sample:     Subnet[1]: 255.255.255.0
+    [00:00:07.080,000] <inf> net_dhcpv4_client_sample:     Router[1]: 192.0.2.2
+    [00:00:07.080,000] <inf> net_dhcpv4_client_sample: Lease time[1]: 7200 seconds
 
-一旦与服务器完成协商 DHCPv4 客户端地址，将显示如下信息:
-
-.. code-block:: console
-
-    [dhcpv4] [INF] main: In main
-    [dhcpv4] [INF] main_thread: Run dhcpv4 client
-    [dhcpv4] [INF] handler: Your address: 192.0.2.10
-    [dhcpv4] [INF] handler: Lease time: 600
-    [dhcpv4] [INF] handler: Subnet: 255.255.255.0
-    [dhcpv4] [INF] handler: Router: 0.0.0.0
-
-为证明 Zephyr 应用客户端正在运行，并已经接收到一个 IP 地址，请键入:
+To verify the Zephyr application client is running and has received
+an ip address by typing:
 
 .. code-block:: console
 
@@ -83,61 +102,131 @@ QEMU x86
 FRDM_K64F
 =========
 
-本操作指南用于在 :ref:`frdm_k64f` 开发板运行此示例应用程序，以从 Linux 主机中的 DHCPv4 服务器协商 IP 地址。
+These are instructions for how to use this sample application running on
+:zephyr:board:`frdm_k64f` board to negotiate IP address from DHCPv4 server (kea) running
+on Linux host.
 
-使用以太网电缆将 :ref:`Freedom-K64F 开发板 <frdm_k64f>` 开发板连接至 Linux 主机，并检查新接口：
+Connect ethernet cable from :zephyr:board:`Freedom-K64F board <frdm_k64f>` to Linux host
+machine and check for new interfaces:
 
 .. code-block:: console
 
     $ ifconfig
 
-为接口添加 ip 地址及路由信息：
+Add ip address and routing information to interface:
 
 .. code-block:: console
 
     $ sudo ip addr add 192.0.2.2 dev eth1
     $ sudo ip route add 192.0.2.0/24 dev eth1
 
-'/etc/dhcpd/dhcp.conf' 为服务器配置文件示例，用于配置 DHCPv4 服务：
+Here's a sample server configuration file '/etc/kea/kea-dhcp4.conf'
+used to configure the DHCPv4 server:
 
 .. code-block:: console
 
-   log-facility local7;
-   default-lease-time 600;
-   max-lease-time 7200;
+    {
+        "Dhcp4": {
+            "interfaces-config": {
+                "interfaces": [ "eth1" ],
+                "dhcp-socket-type": "raw"
+            },
 
-   subnet 192.0.2.0 netmask 255.255.255.0 {
-     range 192.0.2.10 192.0.2.100;
-   }
+            "valid-lifetime": 7200,
 
-在 Linux 主机使用另一个终端窗口启动 DHCPv4 服务，使用以下 conf 文件:
+            "subnet4": [
+                {
+                    "id": 1,
+                    "subnet": "192.0.2.0/24",
+                    "pools": [ { "pool": "192.0.2.10 - 192.0.2.100" } ],
+                    "option-data": [
+                        {
+                            "name": "routers",
+                            "data": "192.0.2.2"
+                        },
+                        {
+                            "name": "domain-name-servers",
+                            "data": "8.8.8.8"
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+
+Use another terminal window to start up a DHCPv4 server on the Linux host,
+using this conf file:
 
 .. code-block:: console
 
-    $ sudo dhcpd -d -4 -cf /etc/dhcp/dhcpd.conf -lf /var/lib/dhcp/dhcpd.leases eth1
+    $ sudo kea-dhcp4 -c /etc/kea/kea-dhcp4.conf
 
-创建 samples/net/dhcpv4_client Zephyr 应用程序:
+Build Zephyr samples/net/dhcpv4_client application:
 
-.. code-block:: console
+.. zephyr-app-commands::
+   :zephyr-app: samples/net/dhcpv4_client
+   :host-os: unix
+   :board: frdm_k64f
+   :goals: build flash
+   :compact:
 
-    $ cd $ZEPHYR_BASE/samples/net/dhcpv4_client
-    $ make pristine && make BOARD=frdm_k64f
-    $ cp outdir/frdm_k64f/zephyr.bin /media/rveerama/MBED/
-
-一旦与服务器完成协商 DHCPv4 客户端地址，将显示如下信息:
+Once DHCPv4 client address negotiation completed with server, details
+are shown like this:
 
 .. code-block:: console
 
     $ sudo screen /dev/ttyACM0 115200
-    [dhcpv4] [INF] main: In main
-    [dhcpv4] [INF] main_thread: Run dhcpv4 client
-    [dhcpv4] [INF] handler: Your address: 192.0.2.10
-    [dhcpv4] [INF] handler: Lease time: 600
-    [dhcpv4] [INF] handler: Subnet: 255.255.255.0
-    [dhcpv4] [INF] handler: Router: 0.0.0.0
+    [00:00:00.000,000] <inf> net_dhcpv4_client_sample: Run dhcpv4 client
+    [00:00:00.000,000] <inf> net_dhcpv4_client_sample: Start on ethernet: index=1
+    [00:00:07.080,000] <inf> net_dhcpv4: Received: 192.0.2.10
+    [00:00:07.080,000] <inf> net_dhcpv4_client_sample:    Address[1]: 192.0.2.10
+    [00:00:07.080,000] <inf> net_dhcpv4_client_sample:     Subnet[1]: 255.255.255.0
+    [00:00:07.080,000] <inf> net_dhcpv4_client_sample:     Router[1]: 192.0.2.2
+    [00:00:07.080,000] <inf> net_dhcpv4_client_sample: Lease time[1]: 7200 seconds
 
-为证明 Zephyr 应用客户端正在运行，并已经接收到一个 IP 地址，请键入:
+To verify the Zephyr application client is running and has received
+an ip address by typing:
 
 .. code-block:: console
 
     $ ping -I eth1 192.0.2.10
+
+
+Arm FVP
+========
+
+* :zephyr:board:`fvp_baser_aemv8r`
+* :ref:`fvp_base_revc_2xaemv8a`
+
+This sample application running on Arm FVP board can negotiate IP
+address from DHCPv4 server running on Arm FVP, so there is no extra
+configuration that needed to do. It can be built and run directly.
+
+Build Zephyr samples/net/dhcpv4_client application:
+
+.. zephyr-app-commands::
+   :zephyr-app: samples/net/dhcpv4_client
+   :host-os: unix
+   :board: fvp_baser_aemv8r
+   :goals: build run
+   :compact:
+
+Once DHCPv4 client address negotiation completed with server, details
+are shown like this:
+
+.. code-block:: console
+
+    uart:~$
+    [00:00:00.060,000] <inf> phy_mii: PHY (0) ID 16F840
+
+    [00:00:00.170,000] <inf> phy_mii: PHY (0) Link speed 10 Mb, half duplex
+
+    [00:00:00.170,000] <inf> eth_smsc91x: MAC 00:02:f7:ef:37:16
+    *** Booting Zephyr OS build zephyr-v3.2.0-4300-g3e6505dba29e ***
+    [00:00:00.170,000] <inf> net_dhcpv4_client_sample: Run dhcpv4 client
+    [00:00:00.180,000] <inf> net_dhcpv4_client_sample: Start on ethernet@9a000000: index=1
+    [00:00:07.180,000] <inf> net_dhcpv4: Received: 172.20.51.1
+    [00:00:07.180,000] <inf> net_dhcpv4_client_sample:    Address[1]: 172.20.51.1
+    [00:00:07.180,000] <inf> net_dhcpv4_client_sample:     Subnet[1]: 255.255.255.0
+    [00:00:07.180,000] <inf> net_dhcpv4_client_sample:     Router[1]: 172.20.51.254
+    [00:00:07.180,000] <inf> net_dhcpv4_client_sample: Lease time[1]: 86400 seconds

@@ -7,30 +7,38 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#if 1
-#define SYS_LOG_DOMAIN "dhcpv4"
-#define NET_SYS_LOG_LEVEL SYS_LOG_LEVEL_DEBUG
-#define NET_LOG_ENABLED 1
-#endif
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(net_dhcpv4_client_sample, LOG_LEVEL_DBG);
 
-#include <zephyr.h>
-#include <sections.h>
+#include <zephyr/kernel.h>
+#include <zephyr/linker/sections.h>
 #include <errno.h>
 #include <stdio.h>
 
-#include <net/nbuf.h>
-#include <net/net_if.h>
-#include <net/net_core.h>
-#include <net/net_context.h>
-#include <net/net_mgmt.h>
+#include <zephyr/net/net_if.h>
+#include <zephyr/net/net_core.h>
+#include <zephyr/net/net_context.h>
+#include <zephyr/net/net_mgmt.h>
 
-#define STACKSIZE 2000
-char __noinit __stack thread_stack[STACKSIZE];
+#define DHCP_OPTION_NTP (42)
+
+static uint8_t ntp_server[4];
 
 static struct net_mgmt_event_callback mgmt_cb;
 
+static struct net_dhcpv4_option_callback dhcp_cb;
+
+static void start_dhcpv4_client(struct net_if *iface, void *user_data)
+{
+	ARG_UNUSED(user_data);
+
+	LOG_INF("Start on %s: index=%d", net_if_get_device(iface)->name,
+		net_if_get_by_iface(iface));
+	net_dhcpv4_start(iface);
+}
+
 static void handler(struct net_mgmt_event_callback *cb,
-		    uint32_t mgmt_event,
+		    uint64_t mgmt_event,
 		    struct net_if *iface)
 {
 	int i = 0;
@@ -42,44 +50,53 @@ static void handler(struct net_mgmt_event_callback *cb,
 	for (i = 0; i < NET_IF_MAX_IPV4_ADDR; i++) {
 		char buf[NET_IPV4_ADDR_LEN];
 
-		if (iface->ipv4.unicast[i].addr_type != NET_ADDR_DHCP) {
+		if (iface->config.ip.ipv4->unicast[i].ipv4.addr_type !=
+							NET_ADDR_DHCP) {
 			continue;
 		}
 
-		NET_INFO("Your address: %s",
-			 net_addr_ntop(AF_INET,
-				     &iface->ipv4.unicast[i].address.in_addr,
-				     buf, sizeof(buf)));
-		NET_INFO("Lease time: %u seconds", iface->dhcpv4.lease_time);
-		NET_INFO("Subnet: %s",
-			 net_addr_ntop(AF_INET, &iface->ipv4.netmask,
+		LOG_INF("   Address[%d]: %s", net_if_get_by_iface(iface),
+			net_addr_ntop(AF_INET,
+			    &iface->config.ip.ipv4->unicast[i].ipv4.address.in_addr,
+						  buf, sizeof(buf)));
+		LOG_INF("    Subnet[%d]: %s", net_if_get_by_iface(iface),
+			net_addr_ntop(AF_INET,
+				       &iface->config.ip.ipv4->unicast[i].netmask,
 				       buf, sizeof(buf)));
-		NET_INFO("Router: %s",
-			 net_addr_ntop(AF_INET, &iface->ipv4.gw,
-				       buf, sizeof(buf)));
+		LOG_INF("    Router[%d]: %s", net_if_get_by_iface(iface),
+			net_addr_ntop(AF_INET,
+						 &iface->config.ip.ipv4->gw,
+						 buf, sizeof(buf)));
+		LOG_INF("Lease time[%d]: %u seconds", net_if_get_by_iface(iface),
+			iface->config.dhcpv4.lease_time);
 	}
 }
 
-static void main_thread(void)
+static void option_handler(struct net_dhcpv4_option_callback *cb,
+			   size_t length,
+			   enum net_dhcpv4_msg_type msg_type,
+			   struct net_if *iface)
 {
-	struct net_if *iface;
+	char buf[NET_IPV4_ADDR_LEN];
 
-	NET_INFO("Run dhcpv4 client");
+	LOG_INF("DHCP Option %d: %s", cb->option,
+		net_addr_ntop(AF_INET, cb->data, buf, sizeof(buf)));
+}
+
+int main(void)
+{
+	LOG_INF("Run dhcpv4 client");
 
 	net_mgmt_init_event_callback(&mgmt_cb, handler,
 				     NET_EVENT_IPV4_ADDR_ADD);
 	net_mgmt_add_event_callback(&mgmt_cb);
 
-	iface = net_if_get_default();
+	net_dhcpv4_init_option_callback(&dhcp_cb, option_handler,
+					DHCP_OPTION_NTP, ntp_server,
+					sizeof(ntp_server));
 
-	net_dhcpv4_start(iface);
-}
+	net_dhcpv4_add_option_callback(&dhcp_cb);
 
-void main(void)
-{
-	NET_INFO("In main");
-
-	k_thread_spawn(&thread_stack[0], STACKSIZE,
-		       (k_thread_entry_t)main_thread,
-		       NULL, NULL, NULL, K_PRIO_COOP(7), 0, 0);
+	net_if_foreach(start_dhcpv4_client, NULL);
+	return 0;
 }

@@ -4,123 +4,152 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <zephyr.h>
-#include <tc_util.h>
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(net_ieee802154_fake_driver, LOG_LEVEL_DBG);
 
-#include <net/nbuf.h>
+#include <zephyr/kernel.h>
+
+#include <zephyr/net/net_core.h>
+#include <zephyr/net/net_if.h>
+#include <zephyr/net/net_pkt.h>
 
 /** FAKE ieee802.15.4 driver **/
-#include <net/ieee802154_radio.h>
+#include <zephyr/net/ieee802154_radio.h>
 
-extern struct net_buf *current_buf;
-extern struct k_sem driver_lock;
+#include "net_private.h"
+#include <ieee802154_frame.h>
 
-static int fake_cca(struct device *dev)
+struct net_pkt *current_pkt;
+K_SEM_DEFINE(driver_lock, 0, UINT_MAX);
+
+uint8_t mock_ext_addr_be[8] = {0x00, 0x12, 0x4b, 0x00, 0x00, 0x9e, 0xa3, 0xc2};
+
+static enum ieee802154_hw_caps fake_get_capabilities(const struct device *dev)
+{
+	return IEEE802154_HW_FCS;
+}
+
+static int fake_cca(const struct device *dev)
 {
 	return 0;
 }
 
-static int fake_set_channel(struct device *dev, uint16_t channel)
+static int fake_set_channel(const struct device *dev, uint16_t channel)
 {
-	TC_PRINT("Channel %u\n", channel);
+	NET_INFO("Channel %u", channel);
 
 	return 0;
 }
 
-static int fake_set_pan_id(struct device *dev, uint16_t pan_id)
+static int fake_set_txpower(const struct device *dev, int16_t dbm)
 {
-	TC_PRINT("PAN id 0x%x\n", pan_id);
+	NET_INFO("TX power %d dbm", dbm);
 
 	return 0;
 }
 
-static int fake_set_short_addr(struct device *dev, uint16_t short_addr)
+static inline void insert_frag(struct net_pkt *pkt, struct net_buf *frag)
 {
-	TC_PRINT("Short address: 0x%x\n", short_addr);
+	struct net_buf *new_frag;
 
-	return 0;
-}
-
-static int fake_set_ieee_addr(struct device *dev, const uint8_t *ieee_addr)
-{
-	TC_PRINT("IEEE address %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n",
-		 ieee_addr[0], ieee_addr[1], ieee_addr[2], ieee_addr[3],
-		 ieee_addr[4], ieee_addr[5], ieee_addr[6], ieee_addr[7]);
-
-	return 0;
-}
-
-static int fake_set_txpower(struct device *dev, int16_t dbm)
-{
-	TC_PRINT("TX power %d dbm\n", dbm);
-
-	return 0;
-}
-
-static inline void insert_frag_dummy_way(struct net_buf *buf)
-{
-	if (current_buf->frags) {
-		struct net_buf *frag, *prev_frag = NULL;
-
-		frag = current_buf->frags;
-		while (frag) {
-			prev_frag = frag;
-
-			frag = frag->frags;
-		}
-
-		prev_frag->frags = net_buf_ref(buf->frags);
-	} else {
-		current_buf->frags = net_buf_ref(buf->frags);
+	new_frag = net_pkt_get_frag(pkt, frag->len, K_SECONDS(1));
+	if (!new_frag) {
+		return;
 	}
+
+	memcpy(new_frag->data, frag->data, frag->len);
+	net_buf_add(new_frag, frag->len);
+
+	net_pkt_frag_add(current_pkt, new_frag);
 }
 
-static int fake_tx(struct device *dev,
-		   struct net_buf *buf,
+static int fake_tx(const struct device *dev,
+		   enum ieee802154_tx_mode mode,
+		   struct net_pkt *pkt,
 		   struct net_buf *frag)
 {
-	TC_PRINT("Sending buffer %p - length %zu\n",
-		 buf, net_buf_frags_len(buf));
+	NET_INFO("Sending packet %p - length %zu",
+		 pkt, net_pkt_get_len(pkt));
 
-	net_nbuf_set_ll_reserve(current_buf, net_nbuf_ll_reserve(buf));
+	if (!current_pkt) {
+		return 0;
+	}
 
-	insert_frag_dummy_way(buf);
+	insert_frag(pkt, frag);
+
+	if (ieee802154_is_ar_flag_set(frag)) {
+		struct net_if *iface = net_if_lookup_by_dev(dev);
+		struct ieee802154_context *ctx = net_if_l2_data(iface);
+
+		struct net_pkt *ack_pkt;
+
+		ack_pkt = net_pkt_rx_alloc_with_buffer(iface, IEEE802154_ACK_PKT_LENGTH, AF_UNSPEC,
+						       0, K_FOREVER);
+		if (!ack_pkt) {
+			NET_ERR("*** Could not allocate ack pkt.");
+			return -ENOMEM;
+		}
+
+		if (!ieee802154_create_ack_frame(iface, ack_pkt, ctx->ack_seq)) {
+			NET_ERR("*** Could not create ack frame.");
+			net_pkt_unref(ack_pkt);
+			return -EFAULT;
+		}
+
+		ieee802154_handle_ack(iface, ack_pkt);
+		net_pkt_unref(ack_pkt);
+	}
 
 	k_sem_give(&driver_lock);
 
 	return 0;
 }
 
-static int fake_start(struct device *dev)
+static int fake_start(const struct device *dev)
 {
-	TC_PRINT("FAKE ieee802154 driver started\n");
+	NET_INFO("FAKE ieee802154 driver started");
 
 	return 0;
 }
 
-static int fake_stop(struct device *dev)
+static int fake_stop(const struct device *dev)
 {
-	TC_PRINT("FAKE ieee802154 driver stopped\n");
+	NET_INFO("FAKE ieee802154 driver stopped");
 
 	return 0;
+}
+
+/* driver-allocated attribute memory - constant across all driver instances */
+IEEE802154_DEFINE_PHY_SUPPORTED_CHANNELS(drv_attr, 11, 26);
+
+/* API implementation: attr_get */
+static int fake_attr_get(const struct device *dev, enum ieee802154_attr attr,
+			 struct ieee802154_attr_value *value)
+{
+	ARG_UNUSED(dev);
+
+	return ieee802154_attr_get_channel_page_and_range(
+		attr, IEEE802154_ATTR_PHY_CHANNEL_PAGE_ZERO_OQPSK_2450_BPSK_868_915,
+		&drv_attr.phy_supported_channels, value);
 }
 
 static void fake_iface_init(struct net_if *iface)
 {
 	struct ieee802154_context *ctx = net_if_l2_data(iface);
-	static uint8_t mac[8] = { 0x00, 0x12, 0x4b, 0x00,
-				  0x00, 0x9e, 0xa3, 0xc2 };
 
-	net_if_set_link_addr(iface, mac, 8, NET_LINK_IEEE802154);
+	net_if_set_link_addr(iface, mock_ext_addr_be, 8, NET_LINK_IEEE802154);
 
-	ctx->pan_id = 0xabcd;
-	ctx->channel = 26;
-	ctx->sequence = 62;
+	ieee802154_init(iface);
 
-	TC_PRINT("FAKE ieee802154 iface initialized\n");
+	ctx->pan_id = IEEE802154_PAN_ID_NOT_ASSOCIATED;
+	ctx->short_addr = IEEE802154_SHORT_ADDRESS_NOT_ASSOCIATED;
+	ctx->channel = 26U;
+	ctx->sequence = 62U;
+
+	NET_INFO("FAKE ieee802154 iface initialized");
 }
 
-static int fake_init(struct device *dev)
+static int fake_init(const struct device *dev)
 {
 	fake_stop(dev);
 
@@ -129,21 +158,19 @@ static int fake_init(struct device *dev)
 
 static struct ieee802154_radio_api fake_radio_api = {
 	.iface_api.init	= fake_iface_init,
-	.iface_api.send	= ieee802154_radio_send,
 
-	.cca		= fake_cca,
-	.set_channel	= fake_set_channel,
-	.set_pan_id	= fake_set_pan_id,
-	.set_short_addr	= fake_set_short_addr,
-	.set_ieee_addr	= fake_set_ieee_addr,
-	.set_txpower	= fake_set_txpower,
-	.start		= fake_start,
-	.stop		= fake_stop,
-	.tx		= fake_tx,
+	.get_capabilities	= fake_get_capabilities,
+	.cca			= fake_cca,
+	.set_channel		= fake_set_channel,
+	.set_txpower		= fake_set_txpower,
+	.start			= fake_start,
+	.stop			= fake_stop,
+	.tx			= fake_tx,
+	.attr_get		= fake_attr_get,
 };
 
 NET_DEVICE_INIT(fake, "fake_ieee802154",
-		fake_init, NULL, NULL,
+		fake_init, NULL, NULL, NULL,
 		CONFIG_KERNEL_INIT_PRIORITY_DEFAULT,
 		&fake_radio_api, IEEE802154_L2,
-		NET_L2_GET_CTX_TYPE(IEEE802154_L2), 127);
+		NET_L2_GET_CTX_TYPE(IEEE802154_L2), IEEE802154_MTU);

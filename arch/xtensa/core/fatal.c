@@ -3,88 +3,26 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <kernel.h>
-#include <arch/cpu.h>
-#include <kernel_structs.h>
+#include <zephyr/kernel.h>
+#include <zephyr/arch/cpu.h>
+#include <zephyr/kernel_structs.h>
 #include <inttypes.h>
-#include <kernel_arch_data.h>
-#include <misc/printk.h>
-#include <xtensa/specreg.h>
+#include <xtensa/config/specreg.h>
+#include <xtensa_backtrace.h>
+#include <zephyr/arch/common/exc_handle.h>
 
-const NANO_ESF _default_esf = {
-	{0xdeaddead}, /* sp */
-	0xdeaddead, /* pc */
-};
+#include <xtensa_internal.h>
 
-/* Need to do this as a macro since regnum must be an immediate value */
-#define get_sreg(regnum_p) ({ \
-	unsigned int retval; \
-	__asm__ volatile( \
-	    "rsr %[retval], %[regnum]\n\t" \
-	    : [retval] "=r" (retval) \
-	    : [regnum] "i" (regnum_p)); \
-	retval; \
-	})
+#include <zephyr/logging/log.h>
+LOG_MODULE_DECLARE(os, CONFIG_KERNEL_LOG_LEVEL);
 
-/**
- *
- * @brief Nanokernel fatal error handler
- *
- * This routine is called when fatal error conditions are detected by software
- * and is responsible only for reporting the error. Once reported, it then
- * invokes the user provided routine _SysFatalErrorHandler() which is
- * responsible for implementing the error handling policy.
- *
- * The caller is expected to always provide a usable ESF. In the event that the
- * fatal error does not have a hardware generated ESF, the caller should either
- * create its own or use a pointer to the global default ESF <_default_esf>.
- *
- * @param reason the reason that the handler was called
- * @param pEsf pointer to the exception stack frame
- *
- * @return This function does not return.
- */
-FUNC_NORETURN void _NanoFatalErrorHandler(unsigned int reason,
-					  const NANO_ESF *pEsf)
+#if defined(CONFIG_SIMULATOR_XTENSA) || defined(XT_SIMULATOR)
+#include <xtensa/simcall.h>
+#endif
+
+char *xtensa_exccause(unsigned int cause_code)
 {
-	switch (reason) {
-	case _NANO_ERR_HW_EXCEPTION:
-	case _NANO_ERR_RESERVED_IRQ:
-		break;
-
-	case _NANO_ERR_INVALID_TASK_EXIT:
-		printk("***** Invalid Exit Software Error! *****\n");
-		break;
-#if defined(CONFIG_STACK_CANARIES)
-	case _NANO_ERR_STACK_CHK_FAIL:
-		printk("***** Stack Check Fail! *****\n");
-		break;
-#endif /* CONFIG_STACK_CANARIES */
-	case _NANO_ERR_ALLOCATION_FAIL:
-		printk("**** Kernel Allocation Failure! ****\n");
-		break;
-	default:
-		printk("**** Unknown Fatal Error %d! ****\n", reason);
-		break;
-	}
-	printk("Current thread ID = %p\n"
-	       "Faulting instruction address = 0x%x\n",
-	       k_current_get(),
-	       pEsf->pc);
-
-	/*
-	 * Now that the error has been reported, call the user implemented
-	 * policy
-	 * to respond to the error.  The decisions as to what responses are
-	 * appropriate to the various errors are something the customer must
-	 * decide.
-	 */
-	_SysFatalErrorHandler(reason, pEsf);
-}
-
-#ifdef CONFIG_PRINTK
-static char *cause_str(unsigned int cause_code)
-{
+#if defined(CONFIG_PRINTK) || defined(CONFIG_LOG)
 	switch (cause_code) {
 	case 0:
 		return "illegal instruction";
@@ -132,111 +70,90 @@ static char *cause_str(unsigned int cause_code)
 		return "store prohibited";
 	case 32: case 33: case 34: case 35: case 36: case 37: case 38: case 39:
 		return "coprocessor disabled";
+	case 63:
+		/* i.e. z_except_reason */
+		return "zephyr exception";
+	case 64:
+		return "kernel oops";
 	default:
 		return "unknown/reserved";
 	}
-}
-#endif
-
-static inline unsigned int get_bits(int offset, int num_bits, unsigned int val)
-{
-	int mask;
-
-	mask = (1 << num_bits) - 1;
-	val = val >> offset;
-	return val & mask;
-}
-
-static void dump_exc_state(void)
-{
-#ifdef CONFIG_PRINTK
-	unsigned int cause, ps;
-
-	cause = get_sreg(EXCCAUSE);
-	ps = get_sreg(PS);
-
-	printk("Exception cause %d (%s):\n"
-	       "  EPC1     : 0x%08x EXCSAVE1 : 0x%08x EXCVADDR : 0x%08x\n",
-	       cause, cause_str(cause), get_sreg(EPC_1),
-	       get_sreg(EXCSAVE_1), get_sreg(EXCVADDR));
-
-	printk("Program state (PS):\n"
-	       "  INTLEVEL : %02d EXCM    : %d UM  : %d RING : %d WOE : %d\n",
-	       get_bits(0, 4, ps), get_bits(4, 1, ps), get_bits(5, 1, ps),
-	       get_bits(6, 2, ps), get_bits(18, 1, ps));
-#ifndef __XTENSA_CALL0_ABI__
-	printk("  OWB      : %02d CALLINC : %d\n",
-	       get_bits(8, 4, ps), get_bits(16, 2, ps));
-#endif
-#endif /* CONFIG_PRINTK */
-}
-
-
-FUNC_NORETURN void FatalErrorHandler(void)
-{
-	printk("*** Unhandled exception ****\n");
-	dump_exc_state();
-	_NanoFatalErrorHandler(_NANO_ERR_HW_EXCEPTION, &_default_esf);
-}
-
-FUNC_NORETURN void ReservedInterruptHandler(unsigned int intNo)
-{
-	printk("*** Reserved Interrupt ***\n");
-	dump_exc_state();
-	printk("INTENABLE = 0x%x\n"
-	       "INTERRUPT = 0x%x (%d)\n",
-	       get_sreg(INTENABLE), (1 << intNo), intNo);
-	_NanoFatalErrorHandler(_NANO_ERR_RESERVED_IRQ, &_default_esf);
-}
-
-/* Implemented in Xtensa HAL */
-extern FUNC_NORETURN void exit(int exit_code);
-
-/**
- *
- * @brief Fatal error handler
- *
- * This routine implements the corrective action to be taken when the system
- * detects a fatal error.
- *
- * This sample implementation attempts to abort the current thread and allow
- * the system to continue executing, which may permit the system to continue
- * functioning with degraded capabilities.
- *
- * System designers may wish to enhance or substitute this sample
- * implementation to take other actions, such as logging error (or debug)
- * information to a persistent repository and/or rebooting the system.
- *
- * @param reason the fatal error reason
- * @param pEsf pointer to exception stack frame
- *
- * @return N/A
- */
-FUNC_NORETURN void _SysFatalErrorHandler(unsigned int reason,
-					 const NANO_ESF *pEsf)
-{
-	ARG_UNUSED(reason);
-	ARG_UNUSED(pEsf);
-
-#if !defined(CONFIG_SIMPLE_FATAL_ERROR_HANDLER)
-	if (k_is_in_isr() || _is_thread_essential()) {
-		printk("Fatal fault in %s! Spinning...\n",
-		       k_is_in_isr() ? "ISR" : "essential thread");
-#ifdef XT_SIMULATOR
-		exit(255 - reason);
 #else
-		for (;;)
-			; /* spin forever */
+	ARG_UNUSED(cause_code);
+	return "na";
 #endif
-	}
-	printk("Fatal fault in thread %p! Aborting.\n", _current);
-	k_thread_abort(_current);
-#else
-	for (;;) {
-		k_cpu_idle();
-	}
+}
+
+void xtensa_fatal_error(unsigned int reason, const struct arch_esf *esf)
+{
+#ifdef CONFIG_EXCEPTION_DEBUG
+	if (esf != NULL) {
+		/* Don't want to get elbowed by xtensa_switch
+		 * in between printing registers and dumping them;
+		 * corrupts backtrace
+		 */
+		unsigned int key = arch_irq_lock();
+
+		xtensa_dump_stack(esf);
+
+
+#if defined(CONFIG_XTENSA_ENABLE_BACKTRACE)
+#if XCHAL_HAVE_WINDOWED
+		xtensa_backtrace_print(100, (int *)esf);
 #endif
+#endif
+		arch_irq_unlock(key);
+	}
+#endif /* CONFIG_EXCEPTION_DEBUG */
+
+	z_fatal_error(reason, esf);
+}
+
+#if defined(CONFIG_SIMULATOR_XTENSA) || defined(XT_SIMULATOR)
+void xtensa_simulator_exit(int return_code)
+{
+	__asm__ (
+	    "mov a3, %[code]\n\t"
+	    "movi a2, %[call]\n\t"
+	    "simcall\n\t"
+	    :
+	    : [code] "r" (return_code), [call] "i" (SYS_exit)
+	    : "a3", "a2", "memory");
 
 	CODE_UNREACHABLE;
 }
 
+FUNC_NORETURN void arch_system_halt(unsigned int reason)
+{
+	xtensa_simulator_exit(255 - reason);
+	CODE_UNREACHABLE;
+}
+#endif
+
+FUNC_NORETURN void arch_syscall_oops(void *ssf)
+{
+	xtensa_arch_kernel_oops(K_ERR_KERNEL_OOPS, ssf);
+
+	CODE_UNREACHABLE;
+}
+
+#ifdef CONFIG_USERSPACE
+void z_impl_xtensa_user_fault(unsigned int reason)
+{
+	if ((_current->base.user_options & K_USER) != 0) {
+		if ((reason != K_ERR_KERNEL_OOPS) &&
+				(reason != K_ERR_STACK_CHK_FAIL)) {
+			reason = K_ERR_KERNEL_OOPS;
+		}
+	}
+	xtensa_arch_except(reason);
+}
+
+static void z_vrfy_xtensa_user_fault(unsigned int reason)
+{
+	z_impl_xtensa_user_fault(reason);
+}
+
+#include <zephyr/syscalls/xtensa_user_fault_mrsh.c>
+
+#endif /* CONFIG_USERSPACE */

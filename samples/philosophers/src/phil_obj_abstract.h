@@ -81,13 +81,13 @@
 			uint32_t stack_mem[1];
 		} fork_obj_t;
 		#define fork_init(x) do { \
-			k_stack_init(x, (uint32_t *)((x) + 1), 1); \
+			k_stack_init(x, (stack_data_t *)((x) + 1), 1); \
 			k_stack_push(x, MAGIC); \
 		} while ((0))
 	#endif
 	#define take(x) do { \
-		uint32_t data; k_stack_pop(x, &data, K_FOREVER); \
-		__ASSERT(data == MAGIC, "data was %x\n", data); \
+		stack_data_t data; k_stack_pop(x, &data, K_FOREVER); \
+		__ASSERT(data == MAGIC, "data was %lx\n", data); \
 	} while ((0))
 	#define drop(x) k_stack_push(x, MAGIC)
 	#define fork_type_str "stacks"
@@ -156,6 +156,7 @@ static fork_t forks[NUM_PHIL] = {
 #endif
 };
 
-static char __stack __noinit stacks[NUM_PHIL][STACK_SIZE];
+static K_THREAD_STACK_ARRAY_DEFINE(stacks, NUM_PHIL, STACK_SIZE);
+static struct k_thread threads[NUM_PHIL];
 
 #endif /* phil_obj_abstract__h */

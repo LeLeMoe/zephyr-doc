@@ -1,24 +1,21 @@
-.. _bluetooth-hci-usb-sample:
+.. zephyr:code-sample:: bluetooth_hci_usb
+   :name: HCI USB
+   :relevant-api: hci_raw bluetooth usbd_api
 
-Bluetooth: HCI USB
-##################
+   Turn a Zephyr board into a USB Bluetooth dongle (compatible with all operating systems).
 
 Overview
 ********
 
 Make a USB Bluetooth dongle out of Zephyr. Requires USB device support from the
-board it runs on (e.g. :ref:`arduino_101` has this).
-
+board it runs on (e.g. :zephyr:board:`nrf52840dk` supports both Bluetooth LE and USB).
 
 Requirements
 ************
 
-* BlueZ running on the host, or
-* A board with BLE support
+* Bluetooth stack running on the host (e.g. BlueZ)
+* A board with Bluetooth and USB support in Zephyr
 
 Building and Running
 ********************
-This sample can be found under :file:`samples/bluetooth/hci_usb` in the
-Zephyr tree.
-
-See :ref:`bluetooth setup section <bluetooth_setup>` for details.
+See :zephyr:code-sample-category:`bluetooth` samples for details.

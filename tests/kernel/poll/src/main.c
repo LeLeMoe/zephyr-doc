@@ -4,25 +4,29 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-/**
- * @addtogroup t_poll
- * @{
- * @defgroup t_poll_api test_poll_api
- * @}
- */
+#include <zephyr/ztest.h>
 
-#include <ztest.h>
-extern void test_poll_no_wait(void);
-extern void test_poll_wait(void);
-extern void test_poll_eaddrinuse(void);
+#ifdef CONFIG_64BIT
+#define MAX_SZ	256
+#else
+#define MAX_SZ	128
+#endif
+
+K_HEAP_DEFINE(test_heap, MAX_SZ * 4);
+extern void poll_test_grant_access(void);
+extern void poll_fail_grant_access(void);
 
 /*test case main entry*/
-void test_main(void *p1, void *p2, void *p3)
+static void *poll_setup(void)
 {
-	ztest_test_suite(test_poll_api
-			 , ztest_unit_test(test_poll_no_wait)
-			 , ztest_unit_test(test_poll_wait)
-			 , ztest_unit_test(test_poll_eaddrinuse)
-	);
-	ztest_run_test_suite(test_poll_api);
+	poll_test_grant_access();
+	poll_fail_grant_access();
+
+	k_thread_heap_assign(k_current_get(), &test_heap);
+
+	return NULL;
 }
+
+ZTEST_SUITE(poll_api, NULL, poll_setup, NULL, NULL, NULL);
+ZTEST_SUITE(poll_api_1cpu, NULL, poll_setup, ztest_simple_1cpu_before,
+		 ztest_simple_1cpu_after, NULL);

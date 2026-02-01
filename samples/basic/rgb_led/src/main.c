@@ -5,75 +5,72 @@
  */
 
 /**
- * @file Sample app to demonstrate PWM.
- *
- * This app uses PWM pins 0, 1, and 2.
+ * @file Sample app to demonstrate PWM-based RGB LED control
  */
 
-#include <zephyr.h>
-#include <misc/printk.h>
-#include <device.h>
-#include <pwm.h>
+#include <zephyr/kernel.h>
+#include <zephyr/sys/printk.h>
+#include <zephyr/device.h>
+#include <zephyr/drivers/pwm.h>
 
-#if defined(CONFIG_SOC_QUARK_SE_C1000)
-#define PWM_DEV CONFIG_PWM_QMSI_DEV_NAME
-#else
-#error "Choose supported board or add new board for the application"
-#endif
+static const struct pwm_dt_spec red_pwm_led =
+	PWM_DT_SPEC_GET(DT_ALIAS(red_pwm_led));
+static const struct pwm_dt_spec green_pwm_led =
+	PWM_DT_SPEC_GET(DT_ALIAS(green_pwm_led));
+static const struct pwm_dt_spec blue_pwm_led =
+	PWM_DT_SPEC_GET(DT_ALIAS(blue_pwm_led));
 
-/*
- * 50 is flicker fusion threshold. Modulated light will be perceived
- * as steady by our eyes when blinking rate is at least 50.
- */
-#define PERIOD (USEC_PER_SEC / 50)
+#define STEP_SIZE PWM_USEC(2000)
 
-/* in micro second */
-#define STEPSIZE	2000
-
-static int write_pin(struct device *pwm_dev, uint32_t pwm_pin,
-		     uint32_t pulse_width)
+int main(void)
 {
-	return pwm_pin_set_usec(pwm_dev, pwm_pin, PERIOD, pulse_width);
-}
+	uint32_t pulse_red, pulse_green, pulse_blue; /* pulse widths */
+	int ret;
 
-void main(void)
-{
-	struct device *pwm_dev;
-	uint32_t pulse_width0, pulse_width1, pulse_width2;
+	printk("PWM-based RGB LED control\n");
 
-	printk("PWM demo app-RGB LED\n");
-
-	pwm_dev = device_get_binding(PWM_DEV);
-	if (!pwm_dev) {
-		printk("Cannot find PWM device!\n");
-		return;
+	if (!pwm_is_ready_dt(&red_pwm_led) ||
+	    !pwm_is_ready_dt(&green_pwm_led) ||
+	    !pwm_is_ready_dt(&blue_pwm_led)) {
+		printk("Error: one or more PWM devices not ready\n");
+		return 0;
 	}
 
 	while (1) {
-		for (pulse_width0 = 0; pulse_width0 <= PERIOD;
-		     pulse_width0 += STEPSIZE) {
-			if (write_pin(pwm_dev, 0, pulse_width0) != 0) {
-				printk("pin 0 write fails!\n");
-				return;
+		for (pulse_red = 0U; pulse_red <= red_pwm_led.period;
+		     pulse_red += STEP_SIZE) {
+			ret = pwm_set_pulse_dt(&red_pwm_led, pulse_red);
+			if (ret != 0) {
+				printk("Error %d: red write failed\n", ret);
+				return 0;
 			}
 
-			for (pulse_width1 = 0; pulse_width1 <= PERIOD;
-			     pulse_width1 += STEPSIZE) {
-				if (write_pin(pwm_dev, 1, pulse_width1) != 0) {
-					printk("pin 1 write fails!\n");
-					return;
+			for (pulse_green = 0U;
+			     pulse_green <= green_pwm_led.period;
+			     pulse_green += STEP_SIZE) {
+				ret = pwm_set_pulse_dt(&green_pwm_led,
+						       pulse_green);
+				if (ret != 0) {
+					printk("Error %d: green write failed\n",
+					       ret);
+					return 0;
 				}
 
-				for (pulse_width2 = 0; pulse_width2 <= PERIOD;
-				     pulse_width2 += STEPSIZE) {
-					if (write_pin(pwm_dev, 2, pulse_width2)
-					    != 0) {
-						printk("pin 2 write fails!\n");
-						return;
+				for (pulse_blue = 0U;
+				     pulse_blue <= blue_pwm_led.period;
+				     pulse_blue += STEP_SIZE) {
+					ret = pwm_set_pulse_dt(&blue_pwm_led,
+							       pulse_blue);
+					if (ret != 0) {
+						printk("Error %d: "
+						       "blue write failed\n",
+						       ret);
+						return 0;
 					}
-					k_sleep(MSEC_PER_SEC);
+					k_sleep(K_SECONDS(1));
 				}
 			}
 		}
 	}
+	return 0;
 }

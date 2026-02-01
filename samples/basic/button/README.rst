@@ -1,46 +1,114 @@
-.. _button-sample:
+.. zephyr:code-sample:: button
+   :name: Button
+   :relevant-api: gpio_interface
 
-Button 示例
-###########
+   Handle GPIO inputs with interrupts.
 
-概览
+Overview
 ********
 
-一个简单的按钮示例，展示了 GPIO 输入中断的使用。
+A simple button demo showcasing the use of GPIO input with interrupts.
+The sample prints a message to the console each time a button is pressed.
 
-需求
+.. NOTE:: If you are looking into an implementation of button events with
+   debouncing, check out :ref:`input` and :zephyr:code-sample:`input-dump`
+   instead.
+
+Requirements
 ************
 
-此示例假定按钮连接至一个GPIO引脚。示例代码的运行需要用户定义了按钮，并在 board.h 文件中定义了 SW0_* 变量。
+The board hardware must have a push button connected via a GPIO pin. These are
+called "User buttons" on many of Zephyr's :ref:`boards`.
 
-使用此示例，你需要在开发板的头文件中定义用户开关。:file:`board.h` 中必须定义以下变量:
+The button must be configured using the ``sw0`` :ref:`devicetree <dt-guide>`
+alias, usually in the :ref:`BOARD.dts file <devicetree-in-out-files>`. You will
+see this error if you try to build this sample for an unsupported board:
 
-- SW0_GPIO_NAME
-- SW0_GPIO_PIN
+.. code-block:: none
 
-以下开发板已经定义了上述变量:
+   Unsupported board: sw0 devicetree alias is not defined
 
-- bbc_microbit
-- cc3200_launchxl
-- frdm_k64f
-- nrf51_pca10028
-- nrf52840_pca10056
-- nrf52_pca10040
-- nucleo_f103rb
-- :ref:`quark_d2000_devboard`
-- quark_se_c1000_devboard
-- quark_se_c1000_ss_devboard
+You may see additional build errors if the ``sw0`` alias exists, but is not
+properly defined.
 
+The sample additionally supports an optional ``led0`` devicetree alias. This is
+the same alias used by the :zephyr:code-sample:`blinky` sample. If this is provided, the LED
+will be turned on when the button is pressed, and turned off off when it is
+released.
 
-编译和运行
+Devicetree details
+==================
+
+This section provides more details on devicetree configuration.
+
+Here is a minimal devicetree fragment which supports this sample. This only
+includes a ``sw0`` alias; the optional ``led0`` alias is left out for
+simplicity.
+
+.. code-block:: devicetree
+
+   / {
+   	aliases {
+   		sw0 = &button0;
+   	};
+
+   	soc {
+   		gpio0: gpio@0 {
+   			status = "okay";
+   			gpio-controller;
+   			#gpio-cells = <2>;
+   			/* ... */
+   		};
+   	};
+
+   	buttons {
+   		compatible = "gpio-keys";
+   		button0: button_0 {
+   			gpios = < &gpio0 PIN FLAGS >;
+   			label = "User button";
+   		};
+   		/* ... other buttons ... */
+   	};
+   };
+
+As shown, the ``sw0`` devicetree alias must point to a child node of a node
+with a "gpio-keys" :ref:`compatible <dt-important-props>`.
+
+The above situation is for the common case where:
+
+- ``gpio0`` is an example node label referring to a GPIO controller
+-  ``PIN`` should be a pin number, like ``8`` or ``0``
+- ``FLAGS`` should be a logical OR of :ref:`GPIO configuration flags <gpio_api>`
+  meant to apply to the button, such as ``(GPIO_PULL_UP | GPIO_ACTIVE_LOW)``
+
+This assumes the common case, where ``#gpio-cells = <2>`` in the ``gpio0``
+node, and that the GPIO controller's devicetree binding names those two cells
+"pin" and "flags" like so:
+
+.. code-block:: yaml
+
+   gpio-cells:
+     - pin
+     - flags
+
+This sample requires a ``pin`` cell in the ``gpios`` property. The ``flags``
+cell is optional, however, and the sample still works if the GPIO cells
+do not contain ``flags``.
+
+Building and Running
 ********************
 
-此示例可为多块开发板编译，此处以 nucleo_f103rb 为例:
+This sample can be built for multiple boards, in this example we will build it
+for the nucleo_f103rb board:
 
-.. code-block:: console
+.. zephyr-app-commands::
+   :zephyr-app: samples/basic/button
+   :board: nucleo_f103rb
+   :goals: build
+   :compact:
 
-   $ cd samples/basic/button
-   $ make BOARD=nucleo_f103rb
-
-
-启动之后，程序寻找一个预定义 GPIO 设备，并将引脚配置为输入模式，使用下降沿中断触发模式。在主循环的每个迭代期间，监视 GPIO 引脚状态并打印至串口控制台。当输入按钮按下，中断处理函数将打印一个携带时间戳事件信息。
+After startup, the program looks up a predefined GPIO device, and configures the
+pin in input mode, enabling interrupt generation on falling edge. During each
+iteration of the main loop, the state of GPIO line is monitored and printed to
+the serial console. When the input button gets pressed, the interrupt handler
+will print an information about this event along with its timestamp.

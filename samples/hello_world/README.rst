@@ -1,35 +1,33 @@
-.. _hello_world:
+.. zephyr:code-sample:: hello_world
+   :name: Hello World
 
-Hello World
-###########
+   Print "Hello World" to the console.
 
-概述
+Overview
 ********
-Hello World 示例非常简单，它可以运行在任何所支持的开发板上面，用于向控制台打印“Hello World”消息。该应用程序可以被编译成：
 
-* 单线程模式
-* 多线程模式
+A simple sample that can be used with any :ref:`supported board <boards>` and
+prints "Hello World" to the console.
 
-编译和运行
+Building and Running
 ********************
 
-该示例于向控制台打印“Hello World”消息。您可以按照下面的方法编译它，并在 QEMU 中运行它：
+This application can be built and executed on QEMU as follows:
 
-.. code-block:: console
+.. zephyr-app-commands::
+   :zephyr-app: samples/hello_world
+   :host-os: unix
+   :board: qemu_x86
+   :goals: run
+   :compact:
 
-   $ cd samples/hello_world
-   $ make run
+To build for another board, change "qemu_x86" above to that board's name.
 
-
-如果要编译成单线程版本，需要使用所提供的另一个配置文件：:file:`prj_single.conf`:
-
-.. code-block:: console
-
-   $ make CONF_FILE=prj_single.conf run
-
-示例的输出
+Sample Output
 =============
 
 .. code-block:: console
 
     Hello World! x86
+
+Exit QEMU by pressing :kbd:`CTRL+A` :kbd:`x`.

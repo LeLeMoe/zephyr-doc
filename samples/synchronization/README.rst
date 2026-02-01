@@ -1,24 +1,32 @@
-.. _synchronization_sample:
+.. zephyr:code-sample:: synchronization
+   :name: Basic Synchronization
+   :relevant-api: thread_apis semaphore_apis
 
-同步
-######################
+   Manipulate basic kernel synchronization primitives.
 
-概述
+Overview
 ********
 
-这个简单的应用程序用于演示内核的基本功能。两个线程（A 和 B）轮流向控制台打印问候消息，在程序内部使用睡眠请求和信号量来控制消息的产生速率。这个示例说明内核调度、通信和时序都正确运行。
+A simple application that demonstrates basic sanity of the kernel.
+Two threads (A and B) take turns printing a greeting message to the console,
+and use sleep requests and semaphores to control the rate at which messages
+are generated. This demonstrates that kernel scheduling, communication,
+and timing are operating correctly.
 
-编译和运行
+Building and Running
 ********************
 
-该示例会向控制台打印消息。您可以按照下面的方法编译它，并在 QEMU 中运行它：
+This project outputs to the console.  It can be built and executed
+on QEMU as follows:
 
-.. code-block:: console
+.. zephyr-app-commands::
+   :zephyr-app: samples/synchronization
+   :host-os: unix
+   :board: qemu_x86
+   :goals: run
+   :compact:
 
-   $ cd samples/synchronization
-   $ make run
-
-示例的输出
+Sample Output
 =============
 
 .. code-block:: console
@@ -35,3 +43,5 @@
    threadB: Hello World!
 
    <repeats endlessly>
+
+Exit QEMU by pressing :kbd:`CTRL+A` :kbd:`x`.

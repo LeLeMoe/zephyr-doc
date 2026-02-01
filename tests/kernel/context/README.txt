@@ -8,29 +8,31 @@ This test verifies that the kernel CPU and context APIs operate as expected.
 APIs tested in this test set
 ============================
 
-k_thread_spawn
-  - start a helper fiber to help with k_yield() tests
-  - start a fiber to test fiber related functionality
+k_thread_create
+  - start a helper thread to help with k_yield() tests
+  - start a thread to test thread related functionality
 
 k_yield
-  - Called by a higher priority fiber when there is another fiber
-  - Called by an equal priority fiber when there is another fiber
-  - Called by a lower priority fiber when there is another fiber
+  - Called by a higher priority thread when there is another thread
+  - Called by an equal priority thread when there is another thread
+  - Called by a lower priority thread when there is another thread
 
 k_current_get
   - Called from an ISR (interrupted a task)
-  - Called from an ISR (interrupted a fiber)
+  - Called from an ISR (interrupted a thread)
   - Called from a task
-  - Called from a fiber
+  - Called from a thread
 
 k_is_in_isr
   - Called from an ISR that interrupted a task
-  - Called from an ISR that interrupted a fiber
+  - Called from an ISR that interrupted a thread
   - Called from a task
-  - Called from a fiber
+  - Called from a thread
 
 k_cpu_idle
-  - CPU to be woken up by tick timer.  Thus, after each call, the tick count
+  - Tickless Kernel: CPU to be woken up by a kernel timer (k_timer)
+  - Non-tickless kernel:
+    CPU to be woken up by tick timer.  Thus, after each call, the tick count
     should have advanced by one tick.
 
 irq_lock
@@ -84,7 +86,7 @@ Testing irq_disable() and irq_enable()
 Testing some kernel context routines
 Testing k_current_get() from an ISR and task
 Testing k_is_in_isr() from an ISR
-Testing k_is_in_isr() from a preemtible thread
+Testing k_is_in_isr() from a preemptible thread
 Spawning a thread from a task
 Thread to test k_current_get() and k_is_in_isr()
 Thread to test k_yield()
@@ -94,7 +96,7 @@ Thread busy waiting completed
 Testing k_sleep()
  thread sleeping for 50 milliseconds
  thread back from sleep
-Testing k_thread_spawn() without cancellation
+Testing k_thread_create() without cancellation
  thread (q order: 2, t/o: 500) is running
  got thread (q order: 2, t/o: 500) as expected
  thread (q order: 3, t/o: 750) is running
@@ -109,7 +111,7 @@ Testing k_thread_spawn() without cancellation
  got thread (q order: 4, t/o: 1750) as expected
  thread (q order: 5, t/o: 2000) is running
  got thread (q order: 5, t/o: 2000) as expected
-Testing k_thread_spawn() with cancellations
+Testing k_thread_create() with cancellations
  cancelling [q order: 0, t/o: 1000, t/o order: 0]
  thread (q order: 3, t/o: 750) is running
  got (q order: 3, t/o: 750, t/o order 1) as expected

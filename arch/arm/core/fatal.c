@@ -6,102 +6,165 @@
 
 /**
  * @file
- * @brief Kernel fatal error handler for ARM Cortex-M
+ * @brief Kernel fatal error handler for ARM Cortex-M and Cortex-R
  *
- * This module provides the _NanoFatalErrorHandler() routine for ARM Cortex-M.
+ * This module provides the z_arm_fatal_error() routine for ARM Cortex-M
+ * and Cortex-R CPUs.
  */
 
-#include <toolchain.h>
-#include <sections.h>
-#include <inttypes.h>
+#include <zephyr/kernel.h>
+#include <zephyr/arch/exception.h>
+#include <kernel_arch_data.h>
+#include <zephyr/logging/log.h>
+LOG_MODULE_DECLARE(os, CONFIG_KERNEL_LOG_LEVEL);
 
-#include <kernel.h>
-#include <kernel_structs.h>
-
-#ifdef CONFIG_PRINTK
-#include <misc/printk.h>
-#define PR_EXC(...) printk(__VA_ARGS__)
-#else
-#define PR_EXC(...)
-#endif /* CONFIG_PRINTK */
-
-/*
- * Define a default ESF for use with _NanoFatalErrorHandler() in the event
- * the caller does not have a NANO_ESF to pass
- */
-const NANO_ESF _default_esf = {
-	{0xdeaddead}, /* r0/a1 */
-	{0xdeaddead}, /* r1/a2 */
-	{0xdeaddead}, /* r2/a3 */
-	{0xdeaddead}, /* r3/a4 */
-	{0xdeaddead}, /* r12/ip */
-	{0xdeaddead}, /* r14/lr */
-	{0xdeaddead}, /* r15/pc */
-	 0xdeaddead,  /* xpsr */
-#ifdef CONFIG_FLOAT
-	{0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead,   /* s0 .. s3 */
-	 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead,    /* s4 .. s7 */
-	 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead,    /* s8 .. s11 */
-	 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead},   /* s12 .. s15 */
-	0xdeaddead,  /* fpscr */
-	0xdeaddead,  /* undefined */
+#ifdef CONFIG_EXCEPTION_DEBUG
+static void esf_dump(const struct arch_esf *esf)
+{
+	EXCEPTION_DUMP("r0/a1:  0x%08x  r1/a2:  0x%08x  r2/a3:  0x%08x",
+		esf->basic.a1, esf->basic.a2, esf->basic.a3);
+	EXCEPTION_DUMP("r3/a4:  0x%08x r12/ip:  0x%08x r14/lr:  0x%08x",
+		esf->basic.a4, esf->basic.ip, esf->basic.lr);
+	EXCEPTION_DUMP(" xpsr:  0x%08x", esf->basic.xpsr);
+#if defined(CONFIG_FPU) && defined(CONFIG_FPU_SHARING)
+	for (int i = 0; i < ARRAY_SIZE(esf->fpu.s); i += 4) {
+		EXCEPTION_DUMP("s[%2d]:  0x%08x  s[%2d]:  0x%08x"
+			"  s[%2d]:  0x%08x  s[%2d]:  0x%08x",
+			i, (uint32_t)esf->fpu.s[i],
+			i + 1, (uint32_t)esf->fpu.s[i + 1],
+			i + 2, (uint32_t)esf->fpu.s[i + 2],
+			i + 3, (uint32_t)esf->fpu.s[i + 3]);
+	}
+#ifdef CONFIG_VFP_FEATURE_REGS_S64_D32
+	for (int i = 0; i < ARRAY_SIZE(esf->fpu.d); i += 4) {
+		EXCEPTION_DUMP("d[%2d]:  0x%16llx  d[%2d]:  0x%16llx"
+			"  d[%2d]:  0x%16llx  d[%2d]:  0x%16llx",
+			i, (uint64_t)esf->fpu.d[i],
+			i + 1, (uint64_t)esf->fpu.d[i + 1],
+			i + 2, (uint64_t)esf->fpu.d[i + 2],
+			i + 3, (uint64_t)esf->fpu.d[i + 3]);
+	}
 #endif
-};
+	EXCEPTION_DUMP("fpscr:  0x%08x", esf->fpu.fpscr);
+#endif
+#if defined(CONFIG_EXTRA_EXCEPTION_INFO)
+	const struct _callee_saved *callee = esf->extra_info.callee;
+
+	if (callee != NULL) {
+		EXCEPTION_DUMP("r4/v1:  0x%08x  r5/v2:  0x%08x  r6/v3:  0x%08x",
+			callee->v1, callee->v2, callee->v3);
+		EXCEPTION_DUMP("r7/v4:  0x%08x  r8/v5:  0x%08x  r9/v6:  0x%08x",
+			callee->v4, callee->v5, callee->v6);
+		EXCEPTION_DUMP("r10/v7: 0x%08x  r11/v8: 0x%08x    psp:  0x%08x",
+			callee->v7, callee->v8, callee->psp);
+	}
+
+	EXCEPTION_DUMP("EXC_RETURN: 0x%0x", esf->extra_info.exc_return);
+
+#endif /* CONFIG_EXTRA_EXCEPTION_INFO */
+	EXCEPTION_DUMP("Faulting instruction address (r15/pc): 0x%08x",
+		esf->basic.pc);
+}
+#endif /* CONFIG_EXCEPTION_DEBUG */
+
+void z_arm_fatal_error(unsigned int reason, const struct arch_esf *esf)
+{
+#ifdef CONFIG_EXCEPTION_DEBUG
+	if (esf != NULL) {
+		esf_dump(esf);
+	}
+#endif /* CONFIG_EXCEPTION_DEBUG */
+
+	/* LOG the IRQn that was unhandled */
+#if defined(CONFIG_CPU_CORTEX_M)
+	if (reason == K_ERR_SPURIOUS_IRQ) {
+		uint32_t irqn = __get_IPSR() - 16;
+
+		EXCEPTION_DUMP("Unhandled IRQn: %d", irqn);
+	}
+#endif
+
+	z_fatal_error(reason, esf);
+}
 
 /**
+ * @brief Handle a software-generated fatal exception
+ * (e.g. kernel oops, panic, etc.).
  *
- * @brief Kernel fatal error handler
+ * Notes:
+ * - the function is invoked in SVC Handler
+ * - if triggered from nPRIV mode, only oops and stack fail error reasons
+ *   may be propagated to the fault handling process.
+ * - We expect the supplied exception stack frame to always be a valid
+ *   frame. That is because, if the ESF cannot be stacked during an SVC,
+ *   a processor fault (e.g. stacking error) will be generated, and the
+ *   fault handler will executed instead of the SVC.
  *
- * This routine is called when fatal error conditions are detected by software
- * and is responsible only for reporting the error. Once reported, it then
- * invokes the user provided routine _SysFatalErrorHandler() which is
- * responsible for implementing the error handling policy.
- *
- * The caller is expected to always provide a usable ESF. In the event that the
- * fatal error does not have a hardware generated ESF, the caller should either
- * create its own or use a pointer to the global default ESF <_default_esf>.
- *
- * @param reason the reason that the handler was called
- * @param pEsf pointer to the exception stack frame
- *
- * @return This function does not return.
+ * @param esf exception frame
+ * @param callee_regs Callee-saved registers (R4-R11)
+ * @param exc_return EXC_RETURN value present in LR after exception entry.
  */
-FUNC_NORETURN void _NanoFatalErrorHandler(unsigned int reason,
-					  const NANO_ESF *pEsf)
+void z_do_kernel_oops(const struct arch_esf *esf, _callee_saved_t *callee_regs, uint32_t exc_return)
 {
-	switch (reason) {
-	case _NANO_ERR_INVALID_TASK_EXIT:
-		PR_EXC("***** Invalid Exit Software Error! *****\n");
-		break;
+#if !(defined(CONFIG_EXTRA_EXCEPTION_INFO) && defined(CONFIG_ARMV7_M_ARMV8_M_MAINLINE))
+	ARG_UNUSED(callee_regs);
+#endif
+	/* Stacked R0 holds the exception reason. */
+	unsigned int reason = esf->basic.r0;
 
-#if defined(CONFIG_STACK_CANARIES)
-	case _NANO_ERR_STACK_CHK_FAIL:
-		PR_EXC("***** Stack Check Fail! *****\n");
-		break;
-#endif /* CONFIG_STACK_CANARIES */
+	z_arm_set_fault_sp(esf, exc_return);
 
-	case _NANO_ERR_ALLOCATION_FAIL:
-		PR_EXC("**** Kernel Allocation Failure! ****\n");
-		break;
+#if defined(CONFIG_USERSPACE)
+	if (z_arm_preempted_thread_in_user_mode(esf)) {
+		/*
+		 * Exception triggered from user mode.
+		 *
+		 * User mode is only allowed to induce oopses and stack check
+		 * failures via software-triggered system fatal exceptions.
+		 */
+		if (!((esf->basic.r0 == K_ERR_KERNEL_OOPS) ||
+			(esf->basic.r0 == K_ERR_STACK_CHK_FAIL))) {
 
-	default:
-		PR_EXC("**** Unknown Fatal Error %d! ****\n", reason);
-		break;
+			reason = K_ERR_KERNEL_OOPS;
+		}
 	}
-	PR_EXC("Current thread ID = %p\n"
-	       "Faulting instruction address = 0x%" PRIx32 "\n",
-	       k_current_get(), pEsf->pc);
 
-	/*
-	 * Now that the error has been reported, call the user implemented
-	 * policy
-	 * to respond to the error.  The decisions as to what responses are
-	 * appropriate to the various errors are something the customer must
-	 * decide.
+#endif /* CONFIG_USERSPACE */
+
+#if !defined(CONFIG_EXTRA_EXCEPTION_INFO)
+	z_arm_fatal_error(reason, esf);
+#else
+	struct arch_esf esf_copy;
+
+	memcpy(&esf_copy, esf, offsetof(struct arch_esf, extra_info));
+#if defined(CONFIG_ARMV7_M_ARMV8_M_MAINLINE)
+	/* extra exception info is collected in callee_reg param
+	 * on CONFIG_ARMV7_M_ARMV8_M_MAINLINE
 	 */
 
-	_SysFatalErrorHandler(reason, pEsf);
+	esf_copy.extra_info = (struct __extra_esf_info) {
+		.callee = callee_regs,
+	};
+#else
+	/* extra exception info is not collected for kernel oops
+	 * path today so we make a copy of the ESF and zero out
+	 * that information
+	 */
+	esf_copy.extra_info = (struct __extra_esf_info) { 0 };
+#endif /* CONFIG_ARMV7_M_ARMV8_M_MAINLINE */
 
-	for (;;)
-		;
+	z_arm_fatal_error(reason, &esf_copy);
+#endif /* CONFIG_EXTRA_EXCEPTION_INFO */
+}
+
+FUNC_NORETURN void arch_syscall_oops(void *ssf_ptr)
+{
+	uint32_t *ssf_contents = ssf_ptr;
+	struct arch_esf oops_esf = { 0 };
+
+	/* TODO: Copy the rest of the register set out of ssf_ptr */
+	oops_esf.basic.pc = ssf_contents[3];
+
+	z_arm_fatal_error(K_ERR_KERNEL_OOPS, &oops_esf);
+	CODE_UNREACHABLE;
 }

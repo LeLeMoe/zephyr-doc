@@ -1,65 +1,139 @@
+:orphan:
+
 .. _zephyr_licensing:
 
-许可
+Licensing of Zephyr Project components
 ######################################
 
 The Zephyr kernel tree imports or reuses packages, scripts and other files that
-are not covered by the :download:`Apache License <../LICENSE>`. In some places
+are not covered by the `Apache 2.0 License`_. In some places
 there is no LICENSE file or way to put a LICENSE file there, so we describe the
 licensing in this document.
 
+Continuous Integration Scripts
+------------------------------
 
-- *kconfig* and *kbuild*
+* *Origin:* Linux Kernel
+* *Licensing:* `GPLv2 License`_
+* *Impact:* These files are used in Continuous Integration (CI) and never linked into the firmware.
+* *Files:*
 
-  *Origin:* Linux Kernel
-  *Licensing:* *GPLv2*
+  * :zephyr_file:`scripts/checkpatch.pl`
+  * :zephyr_file:`scripts/checkstack.pl`
+  * :zephyr_file:`scripts/spelling.txt`
 
-- *scripts/{checkpatch.pl,checkstack.pl,get_maintainers.pl,spelling.txt}*
+Coccinelle Scripts
+------------------
 
-  *Origin:* Linux Kernel
-  *Licensing:* *GPLv2*
+  * *Origin:* Coccinelle
+  * *Licensing:* `GPLv2 License`_
+  * *Impact:* These files are used by `Coccinelle`_, a tool for transforming C-code, and never linked
+    into the firmware.
+  * *Files:*
 
-- *ext/fs/fat/*
+    * :zephyr_file:`scripts/coccicheck`
+    * :zephyr_file:`scripts/coccinelle/array_size.cocci`
+    * :zephyr_file:`scripts/coccinelle/deref_null.cocci`
+    * :zephyr_file:`scripts/coccinelle/deref_null.cocci`
+    * :zephyr_file:`scripts/coccinelle/deref_null.cocci`
+    * :zephyr_file:`scripts/coccinelle/mini_lock.cocci`
+    * :zephyr_file:`scripts/coccinelle/mini_lock.cocci`
+    * :zephyr_file:`scripts/coccinelle/mini_lock.cocci`
+    * :zephyr_file:`scripts/coccinelle/noderef.cocci`
+    * :zephyr_file:`scripts/coccinelle/noderef.cocci`
+    * :zephyr_file:`scripts/coccinelle/returnvar.cocci`
+    * :zephyr_file:`scripts/coccinelle/semicolon.cocci`
 
-  *Origin:* FatFs is a file system based on the FAT file system specification.  This is
-  provided by ELM Chan http://elm-chan.org/fsw/ff/00index_e.html
+GCOV Coverage Header File
+-------------------------
 
-  *Licensing*:
+* *Origin:* GCC, the GNU Compiler Collection
+* *Licensing:* `GPLv2 License`_ with Runtime Library Exception
+* *Impact:* This file is only linked into the firmware if :kconfig:option:`CONFIG_COVERAGE_GCOV` is
+  enabled.
+* *Files:*
 
-    Copyright (C) 2016, ChaN, all right reserved.
+  * :zephyr_file:`subsys/testsuite/coverage/coverage.h`
 
-    FatFs module is an open source software. Redistribution and use of FatFs in
-    source and binary forms, with or without modification, are permitted provided
-    that the following condition is met:
+ENE KB1200_EVB Board OpenOCD Configuration
+------------------------------------------
 
-    1. Redistributions of source code must retain the above copyright notice,
-       this condition and the following disclaimer.
+* *Licensing:* `GPLv2 License`_
+* *Impact:* This file is used by `OpenOCD`_ when programming and debugging the
+  :zephyr:board:`kb1200_evb` board. It is never linked into the firmware.
+* *Files:*
 
-    This software is provided by the copyright holder and contributors "AS IS"
-    and any warranties related to this software are DISCLAIMED.
-    The copyright owner or contributors be NOT LIABLE for any damages caused
-    by use of this software.
+  * :zephyr_file:`boards/ene/kb1200_evb/support/openocd.cfg`
 
-- *ext/hal/cmsis/*
+Thread-Metric RTOS Test Suite Source Files
+------------------------------------------
 
-  *Origin:* https://github.com/ARM-software/CMSIS.git
+* *Origin:* ThreadX
+* *Licensing:* `MIT License`_
+* *Impact:* These files are only linked into the Thread-Metric RTOS Test Suite test firmware.
+* *Files:*
 
-  *Licensing*: :download:`CMSIS_END_USER_LICENCE_AGREEMENT <../ext/hal/cmsis/CMSIS_END_USER_LICENCE_AGREEMENT.pdf>`
+  * :zephyr_file:`tests/benchmarks/thread_metric/thread_metric_readme.txt`
+  * :zephyr_file:`tests/benchmarks/thread_metric/src/tm_api.h`
+  * :zephyr_file:`tests/benchmarks/thread_metric/src/tm_basic_processing_test.c`
+  * :zephyr_file:`tests/benchmarks/thread_metric/src/tm_cooperative_scheduling_test.c`
+  * :zephyr_file:`tests/benchmarks/thread_metric/src/tm_interrupt_preemption_processing_test.c`
+  * :zephyr_file:`tests/benchmarks/thread_metric/src/tm_interrupt_processing_test.c`
+  * :zephyr_file:`tests/benchmarks/thread_metric/src/tm_memory_allocation_test.c`
+  * :zephyr_file:`tests/benchmarks/thread_metric/src/tm_message_processing_test.c`
+  * :zephyr_file:`tests/benchmarks/thread_metric/src/tm_porting_layer.h`
+  * :zephyr_file:`tests/benchmarks/thread_metric/src/tm_porting_layer_zephyr.c`
+  * :zephyr_file:`tests/benchmarks/thread_metric/src/tm_preemptive_scheduling_test.c`
+  * :zephyr_file:`tests/benchmarks/thread_metric/src/tm_synchronization_processing_test.c`
 
-- *ext/hal/nordic/*
+OpenThread Spinel HDLC RCP Host Interface Files
+-----------------------------------------------
 
-  *Origin:*
+* *Origin:* OpenThread
+* *Licensing:* `BSD-3-clause`_
+* *Impact:* These files are only linked into the firmware if :kconfig:option:`CONFIG_HDLC_RCP_IF` is
+  enabled.
+* *Files*:
 
-  *Licensing*: 3-clause BSD (see :download:`source <../ext/hal/nordic/mdk/nrf51.h>`)
+  * :zephyr_file:`modules/openthread/platform/hdlc_interface.hpp`
+  * :zephyr_file:`modules/openthread/platform/radio_spinel.cpp`
+  * :zephyr_file:`modules/openthread/platform/hdlc_interface.cpp`
 
-- *ext/hal/nxp/mcux/*
+Python Devicetree library test files
+------------------------------------
 
-  *Origin:* http://mcux.nxp.com
+* *Licensing:* `BSD-3-clause`_
+* *Impact:* These are only used for testing and never linked with the firmware.
+* *Files*:
 
-  *Licensing*: 3-clause BSD (see :download:`source <../ext/hal/nxp/mcux/drivers/fsl_rtc.h>`)
+  * Various yaml files under ``scripts/dts/python-devicetree/tests``
 
-- *ext/hal/qmsi/*
+FUSE Interface Definition Header File
+--------------------------------------
 
-  *Origin:* https://github.com/quark-mcu/qmsi/releases
+* *Licensing:* `BSD-2-clause`_
+* *Impact:* This header is used in Zephyr build only if :kconfig:option:`CONFIG_FUSE_CLIENT` is enabled.
+* *Files*:
 
-  *Licensing*: 3-clause BSD (see :download:`source <../ext/hal/qmsi/include/qm_common.h>`)
+  * :zephyr_file:`subsys/fs/fuse_client/fuse_abi.h`
+
+.. _Apache 2.0 License:
+   https://github.com/zephyrproject-rtos/zephyr/blob/main/LICENSE
+
+.. _GPLv2 License:
+   https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/plain/COPYING
+
+.. _MIT License:
+  https://opensource.org/licenses/MIT
+
+.. _BSD-3-clause:
+   https://opensource.org/license/bsd-3-clause
+
+.. _BSD-2-clause:
+   https://opensource.org/license/bsd-2-clause
+
+.. _Coccinelle:
+   https://coccinelle.gitlabpages.inria.fr/website/
+
+.. _OpenOCD:
+   https://openocd.org

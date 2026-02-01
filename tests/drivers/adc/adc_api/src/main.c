@@ -1,24 +1,27 @@
 /*
+ * Copyright (c) 2018 Nordic Semiconductor ASA
  * Copyright (c) 2016 Intel Corporation
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
-/**
- * @addtogroup t_driver_adc
- * @{
- * @defgroup t_adc_basic test_adc_basic_operations
- * @}
- */
 
-extern void test_adc_sample(void);
+#include <zephyr/kernel.h>
+#include <zephyr/ztest.h>
 
-#include <zephyr.h>
-#include <ztest.h>
+extern const struct device *get_adc_device(void);
+extern struct k_poll_signal async_sig;
 
-void test_main(void)
+void *adc_basic_setup(void)
 {
-	ztest_test_suite(adc_basic_test,
-			 ztest_unit_test(test_adc_sample));
-	ztest_run_test_suite(adc_basic_test);
+	k_object_access_grant(get_adc_device(), k_current_get());
+#ifdef CONFIG_ADC_ASYNC
+	k_object_access_grant(&async_sig, k_current_get());
+	k_poll_signal_init(&async_sig);
+	k_thread_system_pool_assign(k_current_get());
+#endif
+
+	return NULL;
 }
+
+ZTEST_SUITE(adc_basic, NULL, adc_basic_setup, NULL, NULL, NULL);

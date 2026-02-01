@@ -1,7 +1,11 @@
-.. _boardname_linkname:
+.. zephyr:board:: board_name
 
-[Board Name]
-#############
+.. To ensure the board documentation page displays correctly, it is highly
+   recommended to include a picture alongside the documentation page.
+
+   The picture should be named after the board (e.g., "board_name.webp")
+   and preferably be in webp format. Alternatively, png or jpg formats
+   are also accepted.
 
 Overview
 ********
@@ -13,7 +17,8 @@ Hardware
 
 Supported Features
 ==================
-[List of supported features and level of support in Zephyr]
+
+.. zephyr:board-supported-hw::
 
 Connections and IOs
 ===================
@@ -23,6 +28,8 @@ to connect external components]
 
 Programming and Debugging
 *************************
+
+.. zephyr:board-supported-runners::
 
 Flashing
 ========

@@ -7,27 +7,23 @@
  */
 
 #include <stdbool.h>
-#include <stdint.h>
+#include <zephyr/types.h>
 #include <stddef.h>
 #include <string.h>
 #include <errno.h>
-#include <misc/printk.h>
-#include <misc/byteorder.h>
-#include <zephyr.h>
+#include <zephyr/random/random.h>
+#include <zephyr/sys/printk.h>
+#include <zephyr/sys/byteorder.h>
+#include <zephyr/kernel.h>
 
-#include <bluetooth/bluetooth.h>
-#include <bluetooth/hci.h>
-#include <bluetooth/conn.h>
-#include <bluetooth/uuid.h>
-#include <bluetooth/gatt.h>
+#include <zephyr/bluetooth/bluetooth.h>
+#include <zephyr/bluetooth/hci.h>
+#include <zephyr/bluetooth/conn.h>
+#include <zephyr/bluetooth/uuid.h>
+#include <zephyr/bluetooth/gatt.h>
+#include <zephyr/bluetooth/hci.h>
+#include <zephyr/bluetooth/services/bas.h>
 
-#include <gatt/gap.h>
-#include <gatt/dis.h>
-#include <gatt/bas.h>
-
-#define DEVICE_NAME			CONFIG_BLUETOOTH_DEVICE_NAME
-#define DEVICE_NAME_LEN			(sizeof(DEVICE_NAME) - 1)
-#define CSC_APPEARANCE			0x0485
 #define CSC_SUPPORTED_LOCATIONS		{ CSC_LOC_OTHER, \
 					  CSC_LOC_FRONT_WHEEL, \
 					  CSC_LOC_REAR_WHEEL, \
@@ -82,9 +78,7 @@
 
 /* Cycling Speed and Cadence Service declaration */
 
-static struct bt_gatt_ccc_cfg csc_meas_ccc_cfg[CONFIG_BLUETOOTH_MAX_PAIRED];
-static struct bt_gatt_ccc_cfg ctrl_point_ccc_cfg[CONFIG_BLUETOOTH_MAX_PAIRED];
-static uint32_t cwr; /* Cumulative Wheel Revolutions */
+static uint32_t c_wheel_revs; /* Cumulative Wheel Revolutions */
 static uint8_t supported_locations[] = CSC_SUPPORTED_LOCATIONS;
 static uint8_t sensor_location; /* Current Sensor Location */
 static bool csc_simulate;
@@ -157,7 +151,7 @@ static ssize_t write_ctrl_point(struct bt_conn *conn,
 			break;
 		}
 
-		cwr = sys_le32_to_cpu(req->cwr);
+		c_wheel_revs = sys_le32_to_cpu(req->cwr);
 		status = SC_CP_RSP_SUCCESS;
 		break;
 	case SC_CP_OP_UPDATE_LOC:
@@ -206,23 +200,24 @@ static ssize_t write_ctrl_point(struct bt_conn *conn,
 	return len;
 }
 
-static struct bt_gatt_attr csc_attrs[] = {
+BT_GATT_SERVICE_DEFINE(csc_svc,
 	BT_GATT_PRIMARY_SERVICE(BT_UUID_CSC),
-	BT_GATT_CHARACTERISTIC(BT_UUID_CSC_MEASUREMENT, BT_GATT_CHRC_NOTIFY),
-	BT_GATT_DESCRIPTOR(BT_UUID_CSC_MEASUREMENT, 0x00, NULL, NULL, NULL),
-	BT_GATT_CCC(csc_meas_ccc_cfg, csc_meas_ccc_cfg_changed),
-	BT_GATT_CHARACTERISTIC(BT_UUID_SENSOR_LOCATION, BT_GATT_CHRC_READ),
-	BT_GATT_DESCRIPTOR(BT_UUID_SENSOR_LOCATION, BT_GATT_PERM_READ,
-			   read_location, NULL, &sensor_location),
-	BT_GATT_CHARACTERISTIC(BT_UUID_CSC_FEATURE, BT_GATT_CHRC_READ),
-	BT_GATT_DESCRIPTOR(BT_UUID_CSC_FEATURE, BT_GATT_PERM_READ,
-			   read_csc_feature, NULL, NULL),
+	BT_GATT_CHARACTERISTIC(BT_UUID_CSC_MEASUREMENT, BT_GATT_CHRC_NOTIFY,
+			       0x00, NULL, NULL, NULL),
+	BT_GATT_CCC(csc_meas_ccc_cfg_changed,
+		    BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
+	BT_GATT_CHARACTERISTIC(BT_UUID_SENSOR_LOCATION, BT_GATT_CHRC_READ,
+			       BT_GATT_PERM_READ, read_location, NULL,
+			       &sensor_location),
+	BT_GATT_CHARACTERISTIC(BT_UUID_CSC_FEATURE, BT_GATT_CHRC_READ,
+			       BT_GATT_PERM_READ, read_csc_feature, NULL, NULL),
 	BT_GATT_CHARACTERISTIC(BT_UUID_SC_CONTROL_POINT,
-			       BT_GATT_CHRC_WRITE | BT_GATT_CHRC_INDICATE),
-	BT_GATT_DESCRIPTOR(BT_UUID_SC_CONTROL_POINT, BT_GATT_PERM_WRITE, NULL,
-			   write_ctrl_point, &sensor_location),
-	BT_GATT_CCC(ctrl_point_ccc_cfg, ctrl_point_ccc_cfg_changed),
-};
+			       BT_GATT_CHRC_WRITE | BT_GATT_CHRC_INDICATE,
+			       BT_GATT_PERM_WRITE, NULL, write_ctrl_point,
+			       &sensor_location),
+	BT_GATT_CCC(ctrl_point_ccc_cfg_changed,
+		    BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
+);
 
 struct sc_ctrl_point_ind {
 	uint8_t op;
@@ -247,7 +242,7 @@ static void ctrl_point_ind(struct bt_conn *conn, uint8_t req_op, uint8_t status,
 		memcpy(ind->data, data, data_len);
 	}
 
-	bt_gatt_notify(conn, &csc_attrs[9], buf, sizeof(buf));
+	bt_gatt_notify(conn, &csc_svc.attrs[8], buf, sizeof(buf));
 }
 
 struct csc_measurement_nfy {
@@ -272,10 +267,10 @@ static void measurement_nfy(struct bt_conn *conn, uint32_t cwr, uint16_t lwet,
 	uint8_t buf[sizeof(*nfy) +
 		    (cwr ? sizeof(struct wheel_rev_data_nfy) : 0) +
 		    (ccr ? sizeof(struct crank_rev_data_nfy) : 0)];
-	uint16_t len = 0;
+	uint16_t len = 0U;
 
 	nfy = (void *) buf;
-	nfy->flags = 0;
+	nfy->flags = 0U;
 
 	/* Send Wheel Revolution data is present */
 	if (cwr) {
@@ -300,7 +295,7 @@ static void measurement_nfy(struct bt_conn *conn, uint32_t cwr, uint16_t lwet,
 		memcpy(nfy->data + len, &data, sizeof(data));
 	}
 
-	bt_gatt_notify(NULL, &csc_attrs[2], buf, sizeof(buf));
+	bt_gatt_notify(NULL, &csc_svc.attrs[1], buf, sizeof(buf));
 }
 
 static uint16_t lwet; /* Last Wheel Event Time */
@@ -310,19 +305,19 @@ static uint16_t lcet; /* Last Crank Event Time */
 static void csc_simulation(void)
 {
 	static uint8_t i;
-	uint32_t rand = sys_rand32_get();
+	uint8_t rnd = sys_rand8_get();
 	bool nfy_crank = false, nfy_wheel = false;
 
 	/* Measurements don't have to be updated every second */
 	if (!(i % 2)) {
-		lwet += 1050 + rand % 50;
-		cwr += 2;
+		lwet += 1050 + rnd % 50;
+		c_wheel_revs += 2U;
 		nfy_wheel = true;
 	}
 
 	if (!(i % 3)) {
-		lcet += 1000 + rand % 50;
-		ccr += 1;
+		lcet += 1000 + rnd % 50;
+		ccr += 1U;
 		nfy_crank = true;
 	}
 
@@ -332,7 +327,7 @@ static void csc_simulation(void)
 	 * and is determined by the Server and not required to be configurable
 	 * by the Client.
 	 */
-	measurement_nfy(NULL, nfy_wheel ? cwr : 0, nfy_wheel ? lwet : 0,
+	measurement_nfy(NULL, nfy_wheel ? c_wheel_revs : 0, nfy_wheel ? lwet : 0,
 			nfy_crank ? ccr : 0, nfy_crank ? lcet : 0);
 
 	/*
@@ -340,9 +335,9 @@ static void csc_simulation(void)
 	 * every 64 seconds.
 	 */
 	if (!(i % 64)) {
-		lcet = 0;
-		lwet = 0;
-		i = 0;
+		lcet = 0U;
+		lwet = 0U;
+		i = 0U;
 	}
 
 	i++;
@@ -351,7 +346,7 @@ static void csc_simulation(void)
 static void connected(struct bt_conn *conn, uint8_t err)
 {
 	if (err) {
-		printk("Connection failed (err %u)\n", err);
+		printk("Connection failed, err 0x%02x %s\n", err, bt_hci_err_to_str(err));
 	} else {
 		printk("Connected\n");
 	}
@@ -359,39 +354,32 @@ static void connected(struct bt_conn *conn, uint8_t err)
 
 static void disconnected(struct bt_conn *conn, uint8_t reason)
 {
-	printk("Disconnected (reason %u)\n", reason);
+	printk("Disconnected, reason 0x%02x %s\n", reason, bt_hci_err_to_str(reason));
 }
 
-static struct bt_conn_cb conn_callbacks = {
+BT_CONN_CB_DEFINE(conn_callbacks) = {
 	.connected = connected,
 	.disconnected = disconnected,
 };
 
 static const struct bt_data ad[] = {
 	BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
-	BT_DATA_BYTES(BT_DATA_UUID16_ALL, 0x16, 0x18, 0x0f, 0x18),
+	BT_DATA_BYTES(BT_DATA_UUID16_ALL,
+		      BT_UUID_16_ENCODE(BT_UUID_CSC_VAL),
+		      BT_UUID_16_ENCODE(BT_UUID_BAS_VAL))
 };
 
 static const struct bt_data sd[] = {
-	BT_DATA(BT_DATA_NAME_COMPLETE, DEVICE_NAME, DEVICE_NAME_LEN),
+	BT_DATA(BT_DATA_NAME_COMPLETE, CONFIG_BT_DEVICE_NAME, sizeof(CONFIG_BT_DEVICE_NAME) - 1),
 };
 
-static void bt_ready(int err)
+static void bt_ready(void)
 {
-	if (err) {
-		printk("Bluetooth init failed (err %d)\n", err);
-		return;
-	}
+	int err;
 
 	printk("Bluetooth initialized\n");
 
-	gap_init(DEVICE_NAME, CSC_APPEARANCE);
-	bas_init();
-	dis_init(CONFIG_SOC, "ACME");
-	bt_gatt_register(csc_attrs, ARRAY_SIZE(csc_attrs));
-
-	err = bt_le_adv_start(BT_LE_ADV_CONN, ad, ARRAY_SIZE(ad),
-			      sd, ARRAY_SIZE(sd));
+	err = bt_le_adv_start(BT_LE_ADV_CONN_FAST_1, ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));
 	if (err) {
 		printk("Advertising failed to start (err %d)\n", err);
 		return;
@@ -400,20 +388,33 @@ static void bt_ready(int err)
 	printk("Advertising successfully started\n");
 }
 
-void main(void)
+static void bas_notify(void)
+{
+	uint8_t battery_level = bt_bas_get_battery_level();
+
+	battery_level--;
+
+	if (!battery_level) {
+		battery_level = 100U;
+	}
+
+	bt_bas_set_battery_level(battery_level);
+}
+
+int main(void)
 {
 	int err;
 
-	err = bt_enable(bt_ready);
+	err = bt_enable(NULL);
 	if (err) {
 		printk("Bluetooth init failed (err %d)\n", err);
-		return;
+		return 0;
 	}
 
-	bt_conn_cb_register(&conn_callbacks);
+	bt_ready();
 
 	while (1) {
-		k_sleep(MSEC_PER_SEC);
+		k_sleep(K_SECONDS(1));
 
 		/* CSC simulation */
 		if (csc_simulate) {
@@ -423,4 +424,5 @@ void main(void)
 		/* Battery level simulation */
 		bas_notify();
 	}
+	return 0;
 }

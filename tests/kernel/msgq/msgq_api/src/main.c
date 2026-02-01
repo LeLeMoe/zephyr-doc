@@ -5,27 +5,61 @@
  */
 
 /**
- * @addtogroup t_kernel_msgq
+ * @defgroup kernel_message_queue_tests Message Queue
+ * @ingroup all_tests
  * @{
- * @defgroup t_msgq_api test_msgq_api
  * @}
  */
 
-#include <ztest.h>
-extern void test_msgq_thread(void);
-extern void test_msgq_isr(void);
-extern void test_msgq_put_fail(void);
-extern void test_msgq_get_fail(void);
-extern void test_msgq_purge_when_put(void);
+#include <zephyr/ztest.h>
 
-/*test case main entry*/
-void test_main(void *p1, void *p2, void *p3)
+#include "test_msgq.h"
+
+#ifdef CONFIG_64BIT
+#define MAX_SZ	256
+#else
+#define MAX_SZ	128
+#endif
+
+K_HEAP_DEFINE(test_pool, MAX_SZ * 2);
+
+extern struct k_msgq kmsgq;
+extern struct k_msgq msgq;
+extern struct k_sem end_sema;
+extern struct k_thread tdata;
+extern k_tid_t tids[2];
+K_THREAD_STACK_DECLARE(tstack, STACK_SIZE);
+
+void *msgq_api_setup(void)
 {
-	ztest_test_suite(test_msgq_api,
-			 ztest_unit_test(test_msgq_thread),
-			 ztest_unit_test(test_msgq_isr),
-			 ztest_unit_test(test_msgq_put_fail),
-			 ztest_unit_test(test_msgq_get_fail),
-			 ztest_unit_test(test_msgq_purge_when_put));
-	ztest_run_test_suite(test_msgq_api);
+	k_thread_access_grant(k_current_get(), &kmsgq, &msgq, &end_sema,
+			      &tdata, &tstack);
+	k_thread_heap_assign(k_current_get(), &test_pool);
+	return NULL;
 }
+
+static void test_end_threads_join(void)
+{
+	for (int i = 0; i < ARRAY_SIZE(tids); i++) {
+		if (tids[i] != NULL) {
+			k_thread_join(tids[i], K_FOREVER);
+			tids[i] = NULL;
+		}
+	}
+}
+
+static void msgq_api_test_after(void *data)
+{
+	test_end_threads_join();
+}
+
+static void msgq_api_test_1cpu_after(void *data)
+{
+	test_end_threads_join();
+
+	ztest_simple_1cpu_after(data);
+}
+
+ZTEST_SUITE(msgq_api, NULL, msgq_api_setup, NULL, msgq_api_test_after, NULL);
+ZTEST_SUITE(msgq_api_1cpu, NULL, msgq_api_setup,
+	    ztest_simple_1cpu_before, msgq_api_test_1cpu_after, NULL);

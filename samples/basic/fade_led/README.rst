@@ -1,40 +1,38 @@
-.. _fade-led-sample:
+.. zephyr:code-sample:: fade-led
+   :name: Fade LED
+   :relevant-api: pwm_interface
 
-PWM: LED 亮度渐变
-###################
+   Fade an LED using the PWM API.
 
-概述
+Overview
 ********
 
-此示例使用 PWM 控制 LED 亮度渐变。
+This application "fades" a LED using the :ref:`PWM API <pwm_api>`.
 
-LED 将从全黑开始，并在 10 秒内逐渐增加其亮度。然后在 10 秒内逐渐减少亮度，最终 LED 再次全黑。LED 将持续重复这个周期。
+The LED starts off increases its brightness until it is fully or nearly fully
+on. The brightness then decreases until the LED is off, completing on fade
+cycle. Each cycle takes 2.5 seconds, and the cycles repeat forever. The PWM
+period is taken from Devicetree. It should be fast enough to be above the
+flicker fusion threshold.
 
-接线
-******
+Requirements and Wiring
+***********************
 
-Arduino 101 和 Quark D2000 CRB
-===============================
+This sample has the same requirements and wiring considerations as the
+:zephyr:code-sample:`pwm-blinky` sample.
 
-需要将 LED 接地，并通过扩展板接至 PWM0。 你可能需要一个限流电阻，请参考数据手册中的 LED 部分。
-
-Nucleo_F401RE 和 Nucleo_L476RG
-===============================
-
-将 PWM2(PA0) 连接至 LED。
-
-Nucleo_F103RB
-=============
-
-将 PWM1(PA8) 连接至 LED。
-
-编译和运行
+Building and Running
 ********************
 
-本示例可以用于多个开发板，这里以 arduino_101 为例：
+To build and flash this sample for the :zephyr:board:`nrf52840dk`:
 
-.. code-block:: console
+.. zephyr-app-commands::
+   :zephyr-app: samples/basic/fade_led
+   :board: nrf52840dk/nrf52840
+   :goals: build flash
+   :compact:
 
-   $ cd samples/basic/fade_led
-   $ make BOARD=arduino_101
-   $ make BOARD=arduino_101 flash
+Change ``nrf52840dk/nrf52840`` appropriately for other supported boards.
+
+After flashing, the sample starts fading the LED as described above. It also
+prints information to the board's console.

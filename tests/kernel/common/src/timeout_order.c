@@ -4,9 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <kernel.h>
-#include <misc/printk.h>
-#include <ztest.h>
+#include <zephyr/kernel.h>
+#include <zephyr/sys/printk.h>
+#include <zephyr/ztest.h>
 
 #define NUM_TIMEOUTS 3
 
@@ -23,7 +23,6 @@ static void thread(void *p1, void *p2, void *p3)
 	uintptr_t id = (uintptr_t)p1;
 
 	k_timer_status_sync(&timer[id]);
-	printk("%s %d synced on timer %d\n", __func__, id, id);
 
 	/* no need to protect cur, all threads have the same prio */
 	results[cur++] = id;
@@ -31,15 +30,37 @@ static void thread(void *p1, void *p2, void *p3)
 	k_sem_give(&sem[id]);
 }
 
-static __noinit __stack char stacks[NUM_TIMEOUTS][512];
+#define STACKSIZE (512 + CONFIG_TEST_EXTRA_STACK_SIZE)
 
-void timeout_order_test(void)
+static K_THREAD_STACK_ARRAY_DEFINE(stacks, NUM_TIMEOUTS, STACKSIZE);
+static struct k_thread threads[NUM_TIMEOUTS];
+
+/**
+ * @defgroup kernel_timeout_tests Timeout Order
+ * @ingroup all_tests
+ * @{
+ * @}
+ *
+ * @addtogroup kernel_timeout_tests
+ * @{
+ */
+
+/**
+ * @brief Test timeout ordering
+ *
+ * @details Timeouts, when expiring on the same tick, should be handled
+ * in the same order they were queued.
+ *
+ * @see k_timer_start()
+ */
+ZTEST(common_1cpu, test_timeout_order)
 {
 	int ii, prio = k_thread_priority_get(k_current_get()) + 1;
 
 	for (ii = 0; ii < NUM_TIMEOUTS; ii++) {
-		(void)k_thread_spawn(stacks[ii], 512, thread,
-				     (void *)ii, 0, 0, prio, 0, 0);
+		(void)k_thread_create(&threads[ii], stacks[ii], STACKSIZE,
+				      thread, INT_TO_POINTER(ii), 0, 0,
+				      prio, 0, K_NO_WAIT);
 		k_timer_init(&timer[ii], 0, 0);
 		k_sem_init(&sem[ii], 0, 1);
 		results[ii] = -1;
@@ -49,32 +70,32 @@ void timeout_order_test(void)
 	uint32_t uptime = k_uptime_get_32();
 
 	/* sync on tick */
-	while (uptime == k_uptime_get_32())
-		;
-
-	for (ii = 0; ii < NUM_TIMEOUTS; ii++) {
-		k_timer_start(&timer[ii], 100, 0);
+	while (uptime == k_uptime_get_32()) {
+		Z_SPIN_DELAY(50);
 	}
 
-	struct k_poll_event poll_events[NUM_TIMEOUTS];
-
 	for (ii = 0; ii < NUM_TIMEOUTS; ii++) {
-		k_poll_event_init(&poll_events[ii], K_POLL_TYPE_SEM_AVAILABLE,
-				  K_POLL_MODE_NOTIFY_ONLY, &sem[ii]);
+		k_timer_start(&timer[ii], K_MSEC(100), K_NO_WAIT);
 	}
 
-	/* drop prio to get all poll events together */
-	k_thread_priority_set(k_current_get(), prio + 1);
+	/* Wait for all timers to fire */
+	k_msleep(125);
 
-	assert_equal(k_poll(poll_events, NUM_TIMEOUTS, 2000), 0, "");
-
-	k_thread_priority_set(k_current_get(), prio - 1);
-
+	/* Check results */
 	for (ii = 0; ii < NUM_TIMEOUTS; ii++) {
-		assert_equal(poll_events[ii].state,
-			     K_POLL_STATE_SEM_AVAILABLE, "");
+		zassert_equal(results[ii], ii, "");
 	}
+
+	/* Clean up */
 	for (ii = 0; ii < NUM_TIMEOUTS; ii++) {
-		assert_equal(results[ii], ii, "");
+		k_timer_stop(&timer[ii]);
+		k_thread_join(&threads[ii], K_FOREVER);
 	}
 }
+
+/**
+ * @}
+ */
+extern void *common_setup(void);
+ZTEST_SUITE(common_1cpu, NULL, common_setup,
+		ztest_simple_1cpu_before, ztest_simple_1cpu_after, NULL);

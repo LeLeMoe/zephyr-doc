@@ -5,38 +5,74 @@
  */
 
 
-#include <ztest.h>
+#include <zephyr/ztest.h>
+#include <zephyr/kernel_version.h>
+#include <zephyr/sys/speculation.h>
+#include <zephyr/version.h>
 
+/**
+ * @defgroup kernel_common_tests Common Tests
+ * @ingroup all_tests
+ * @{
+ * @}
+ *
+ */
 
-extern void byteorder_test_memcpy_swap(void);
-extern void byteorder_test_mem_swap(void);
-extern void atomic_test(void);
-extern void bitfield_test(void);
-extern void intmath_test(void);
-extern void printk_test(void);
-extern void ring_buffer_test(void);
-extern void slist_test(void);
-extern void dlist_test(void);
-extern void rand32_test(void);
-extern void rand32_test(void);
-extern void timeout_order_test(void);
-
-void test_main(void)
+#ifndef CONFIG_PRINTK
+ZTEST(printk, test_printk)
 {
-	ztest_test_suite(common_test,
-			 ztest_unit_test(byteorder_test_memcpy_swap),
-			 ztest_unit_test(byteorder_test_mem_swap),
-			 ztest_unit_test(atomic_test),
-#ifdef CONFIG_PRINTK
-			 ztest_unit_test(printk_test),
-#endif
-			 ztest_unit_test(ring_buffer_test),
-			 ztest_unit_test(slist_test),
-			 ztest_unit_test(dlist_test),
-			 ztest_unit_test(rand32_test),
-			 ztest_unit_test(intmath_test),
-			 ztest_unit_test(timeout_order_test)
-			 );
-
-	ztest_run_test_suite(common_test);
+	ztest_test_skip();
 }
+#endif
+
+/**
+ * @brief Test sys_kernel_version_get() functionality
+ *
+ * @ingroup kernel_common_tests
+ *
+ * @see sys_kernel_version_get()
+ */
+ZTEST(common, test_version)
+{
+	uint32_t version = sys_kernel_version_get();
+
+	zassert_true(SYS_KERNEL_VER_MAJOR(version) == KERNEL_VERSION_MAJOR,
+		     "major version mismatch");
+	zassert_true(SYS_KERNEL_VER_MINOR(version) == KERNEL_VERSION_MINOR,
+		     "minor version mismatch");
+	zassert_true(SYS_KERNEL_VER_PATCHLEVEL(version) == KERNEL_PATCHLEVEL,
+		     "patchlevel version match");
+
+}
+
+ZTEST(common, test_bounds_check_mitigation)
+{
+	/* Very hard to test against speculation attacks, but we can
+	 * at least assert that logically this function does
+	 * what it says it does.
+	 */
+
+	int index = 17;
+
+	index = k_array_index_sanitize(index, 24);
+	zassert_equal(index, 17, "bad index");
+
+#ifdef CONFIG_USERSPACE
+	index = k_array_index_sanitize(index, 5);
+	zassert_equal(index, 0, "bad index");
+#endif
+}
+
+extern struct k_stack eno_stack;
+extern struct k_thread eno_thread;
+
+void *common_setup(void)
+{
+#if CONFIG_USERSPACE
+	k_thread_access_grant(k_current_get(), &eno_thread, &eno_stack);
+#endif
+
+	return NULL;
+}
+
+ZTEST_SUITE(common, NULL, common_setup, NULL, NULL, NULL);

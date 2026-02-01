@@ -1,112 +1,279 @@
-.. _mqtt-publisher-sample:
+.. zephyr:code-sample:: mqtt-publisher
+   :name: MQTT publisher
+   :relevant-api: mqtt_socket
 
-MQTT 发布机
-##############
+   Send MQTT PUBLISH messages to an MQTT server.
 
-概述
+Overview
 ********
 
-`MQTT <http://mqtt.org/>`_ (Message Queuing  Telemetry Transport 消息队列遥测传输) 是一个轻量级发布/订阅信息协议，为小型传感器及移动设备而优化。
+`MQTT <http://mqtt.org/>`_ (MQ Telemetry Transport) is a lightweight
+publish/subscribe messaging protocol optimized for small sensors and
+mobile devices.
 
-Zephyr MQTT 发布机示例应用程序是一个 MQTT v3.1.1 客户端，它向 MQTT 代理传送 MQTT PUBLISH 消息。参考 `MQTT V3.1.1 spec`_ 获取更多信息。
+The Zephyr MQTT Publisher sample application is a MQTT client that sends
+MQTT PUBLISH messages to a MQTT broker. The sample supports MQTT client in
+version v3.1.1 (default) and v5.0.
 
-.. _MQTT V3.1.1 spec: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/mqtt-v3.1.1.html
+See the `MQTT v3.1.1 spec`_ and `MQTT v5.0 spec`_ for more information about
+MQTT v3.1.1 and v5.0, respectively.
 
-此示例应用源码位于：:file:`samples/net/mqtt_publisher`.
+.. _MQTT v3.1.1 spec: https://docs.oasis-open.org/mqtt/mqtt/v3.1.1/mqtt-v3.1.1.html
+.. _MQTT v5.0 spec: https://docs.oasis-open.org/mqtt/mqtt/v5.0/mqtt-v5.0.html
 
-需求
+The source code of this sample application can be found at:
+:zephyr_file:`samples/net/mqtt_publisher`.
+
+Requirements
 ************
 
-- Linux 机器
-- 自由板 (FRDM-K64F)
-- Mosquitto 服务器: 支持 MQTT v3.1.1 的任意版本。 此例在 mosquitto 1.3.4上经过测试。
-- Mosquitto 订阅者
-- 用于测试目的的 LAN (以太网)
+- Linux machine
+- Freedom Board (FRDM-K64F)
+- Mosquitto server: any version that supports MQTT v3.1.1. This sample
+  was tested with mosquitto 1.3.4.
+- Mosquitto subscriber
+- LAN for testing purposes (Ethernet)
 
-编译和运行
+Build and Running
 *****************
 
-当前，此示例仅支持静态 IP 地址。打开 :file:`src/config.h` 文件， 并依照局域网环境设置 IP 地址。或者在 :file:`prj_frdm_k64f.conf` 文件中设置 IP 地址。
+Currently, this sample application only supports static IP addresses.
+Open the :file:`src/config.h` file and set the IP addresses according
+to the LAN environment.
+Alternatively, set the IP addresses in the :file:`prj.conf` file.
 
-:file:`src/config.h` 文件也包含了一些需要设置的变量:
+The file :file:`src/config.h` also contains some variables that may be changed:
 
-MQTT 代理的 TCP 端口：
+MQTT broker TCP port:
 
 .. code-block:: c
 
 	#define SERVER_PORT		1883
 
-应用程序睡眠时间：
+Application sleep time:
 
 .. code-block:: c
 
 	#define APP_SLEEP_MSECS		500
 
-应用程序的接收和发送超时：
-
-.. code-block:: c
-
-	#define APP_TX_RX_TIMEOUT       300
-
-最大尝试连接次数：
+Max number of connection tries:
 
 .. code-block:: c
 
 	#define APP_CONNECT_TRIES	10
 
-MQTT PUBLISH 最大迭代次数：
-
-.. code-block:: c
-
-	#define APP_MAX_ITERATIONS	5
-
-MQTT 客户端标识：
+MQTT Client Identifier:
 
 .. code-block:: c
 
 	#define MQTT_CLIENTID		"zephyr_publisher"
 
-此示例应用支持 IBM Bluemix Watson 主题格式，可将 APP_BLUEMIX_TOPIC 默认值由 0 变为 1:
+This sample application supports the IBM Bluemix Watson topic format that can
+be enabled by changing the default value of APP_BLUEMIX_TOPIC from 0 to 1:
 
-.. code block:: c
+.. code-block:: c
 
 	#define APP_BLUEMIX_TOPIC	1
 
-Bluemix 主题可以包含一些参数如设备类型、设备标识符、事件类型和消息格式。此应用使用以下宏来指定这些值：
+The Bluemix topic may include some parameters like device type, device
+identifier, event type and message format. This application uses the
+following macros to specify those values:
 
-.. code block:: c
+.. code-block:: c
 
 	#define BLUEMIX_DEVTYPE		"sensor"
 	#define BLUEMIX_DEVID		"carbon"
 	#define BLUEMIX_EVENT		"status"
 	#define BLUEMIX_FORMAT		"json"
 
-在你的 Linux 主机上, 打开终端窗口, 定位到此应用程序的源码 (即 :file:`samples/net/mqtt_publisher`) 并输入：
+Max number of MQTT PUBLISH iterations is defined in Kconfig:
+
+.. code-block:: cfg
+
+	CONFIG_NET_SAMPLE_APP_MAX_ITERATIONS=5
+
+On your Linux host computer, open a terminal window, locate the source code
+of this sample application (i.e., :zephyr_file:`samples/net/mqtt_publisher`) and type:
+
+.. zephyr-app-commands::
+   :zephyr-app: samples/net/mqtt_publisher
+   :board: frdm_k64f
+   :goals: build flash
+   :compact:
+
+If the board is connected directly to the Linux host computer through LAN,
+configure the network interface:
 
 .. code-block:: console
 
-	make BOARD=frdm_k64f
+	$ IFACE=eth0 # Change this to the interface to which the LAN cable is connected
 
-打开另一个终端窗口并输入:
+	$ IPV4_ADDR_1="192.0.2.2/24"
+	$ IPV4_ROUTE_1="192.0.2.0/24"
+
+	$ sudo ip address add $IPV4_ADDR_1 dev $IFACE
+	$ sudo ip route add $IPV4_ROUTE_1 dev $IFACE
+	$ sudo ip link set dev $IFACE up
+
+You can run ``sudo ip addr flush dev $IFACE`` to undo the steps above.
+
+.. note::
+	For mosquitto 2.0 and up, ensure you set unauthenticated access by
+	adding the following to the mosquitto configuration file ``mosquitto.conf``:
+
+	.. code-block:: none
+
+		listener 1883
+		allow_anonymous true
+		bind_interface eth0
+
+Open another terminal window and type:
 
 .. code-block:: console
 
-	sudo mosquitto -v -p 1883
+	$ sudo mosquitto -v -p 1883		# For mosquitto < 2.0
+	$ sudo mosquitto -v -c mosquitto.conf	# For mosquitto >= 2.0
 
-打开另一个终端窗口并输入:
+Open another terminal window and type:
 
 .. code-block:: console
 
-	mosquito_sub -t sensors
+	$ mosquitto_sub -t sensors
 
-示例输出
-=============
+MQTT v5.0 support
+=================
 
-以下是输出来自 FRDM UART 控制台，参数设置为:
+The sample can be configured to use MQTT v5.0 instead of MQTT v3.1.1. To enable
+MQTT v5.0 in the sample, build it with ``-DEXTRA_CONF_FILE=overlay-mqtt-5.conf``
+parameter. The sample should work with any broker supporting MQTT v5.0, however
+it was specifically tested with mosquitto version 2.0.21. Server side
+configuration in this particular case is the same as for MQTT v3.1.1.
+
+When the sample is configured in the MQTT v5.0 mode, it makes use of the topic
+aliasing feature. i.e. if the broker reports it supports topic aliases, the
+client will register a topic alias for the default ``sensors`` topic, and use it
+for consecutive MQTT Publish messages. It can be observed (for example using
+Wireshark) how the actual topic is only present in the first Publish message, and
+all subsequent Publish messages are smaller, as they include topic alias
+property only.
+
+Connecting securely using TLS
+=============================
+
+While it is possible to set up a local secure MQTT server and update the
+sample to connect to it, it does require some work on the user's part to
+create the certificates and to set them up with the server.
+
+Alternatively, a `publicly available Mosquitto MQTT server/broker
+<https://test.mosquitto.org/>`_ is available to quickly and easily
+try this sample with TLS enabled, by following these steps:
+
+- Download the server's CA certificate file in DER format from
+  https://test.mosquitto.org
+- In :file:`src/test_certs.h`, set ``ca_certificate[]`` using the certificate
+  contents (or set it to its filename if the socket offloading feature is
+  enabled on your platform and :kconfig:option:`CONFIG_TLS_CREDENTIAL_FILENAMES` is
+  set to ``y``).
+- In :file:`src/config.h`, set SERVER_ADDR to the IP address to connect to,
+  i.e., the IP address of test.mosquitto.org ``"37.187.106.16"``
+- In :file:`src/main.c`, set TLS_SNI_HOSTNAME to ``"test.mosquitto.org"``
+  to match the Common Name (CN) in the downloaded certificate.
+- Build the sample by specifying ``-DEXTRA_CONF_FILE=overlay-tls.conf``
+  when running ``west build`` or ``cmake`` (or refer to the TLS offloading
+  section below if your platform uses the offloading feature).
+- Flash the binary onto the device to run the sample:
+
+.. code-block:: console
+
+        $ ninja flash
+
+TLS offloading
+==============
+
+For boards that support this feature, TLS offloading is used by
+specifying ``-DEXTRA_CONF_FILE=overlay-tls-offload.conf`` when running ``west
+build`` or ``cmake``.
+
+Using this overlay enables TLS without bringing in mbedtls.
+
+SOCKS5 proxy support
+====================
+
+It is also possible to connect to the MQTT broker through a SOCKS5 proxy.
+To enable it, use ``-DEXTRA_CONF_FILE=overlay-socks5.conf`` when running ``west
+build`` or  ``cmake``.
+
+By default, to make the testing easier, the proxy is expected to run on the
+same host as the MQTT broker.
+
+To start a proxy server, ``ssh`` can be used.
+Use the following command to run it on your host with the default port:
+
+.. code-block:: console
+
+	$ ssh -N -D 0.0.0.0:1080 localhost
+
+To connect to a proxy server that is not running under the same IP as the MQTT
+broker or uses a different port number, modify the following values:
 
 .. code-block:: c
 
-	#define APP_MAX_ITERATIONS     5
+	#define SOCKS5_PROXY_ADDR    SERVER_ADDR
+	#define SOCKS5_PROXY_PORT    1080
+
+MQTT logging backend
+====================
+
+The sample can be configured to use an MQTT logging backend, which allows log
+messages from the application to be published to an MQTT broker. This feature
+uses the same MQTT client instance as the main sample application.
+
+The MQTT logging backend uses the :c:func:`log_backend_mqtt_client_set` API to
+register an MQTT client for publishing log messages. The backend only uses the
+client's :c:func:`mqtt_publish` function and does not manage the client's
+connection lifecycle - this remains the application's responsibility.
+
+To enable the MQTT logging backend in the sample, build it with
+``-DEXTRA_CONF_FILE=overlay-log-backend-mqtt.conf`` parameter.
+
+Key configuration options available:
+
+- :kconfig:option:`CONFIG_LOG_BACKEND_MQTT_TOPIC_DEFAULT`: Topic for publishing logs (default: "zephyr/logs")
+- :kconfig:option:`CONFIG_LOG_BACKEND_MQTT_QOS`: QoS level for log messages (default: 0)
+- :kconfig:option:`CONFIG_LOG_BACKEND_MQTT_RETAIN`: Whether to retain log messages (default: disabled)
+- :kconfig:option:`CONFIG_LOG_BACKEND_MQTT_MAX_MSG_SIZE`: Maximum log message size (default: 256 bytes)
+
+Running on cc3220sf_launchxl
+============================
+
+Offloading on cc3220sf_launchxl also provides DHCP services, so the sample
+uses dynamic IP addresses on this board.
+
+By default, the sample is set up to connect to the broker at the address
+specified by SERVER_ADDR in config.h. If the broker is secured using TLS, users
+should enable TLS offloading, upload the server's certificate
+authority file in DER format to the device filesystem using TI Uniflash,
+and name it "ca_cert.der".
+
+In addition, TLS_SNI_HOSTNAME in main.c should be defined to match the
+Common Name (CN) in the certificate file in order for the TLS domain
+name verification to succeed.
+
+See the note on Provisioning and Fast Connect in :zephyr:board:`cc3220sf_launchxl`.
+
+The Secure Socket Offload section has information on programming the
+certificate to flash.
+
+Proceed to test as above.
+
+Sample output
+=============
+
+This is the output from the FRDM UART console, with:
+
+.. code-block:: cfg
+
+	CONFIG_NET_SAMPLE_APP_MAX_ITERATIONS=5
 
 .. code-block:: console
 
@@ -157,42 +324,43 @@ Bluemix 主题可以包含一些参数如设备类型、设备标识符、事件
 
 	Bye!
 
-下行:
+The line:
 
 .. code-block:: console
 
 	[try_to_connect:220] mqtt_connect: -5 <ERROR>
 
-表示检测到一个错误，并准备发送一个新的连接信息。
+means that an error was detected and a new connect message will be sent.
 
-MQTT API 是异步的, 所以消息在回调函数执行时显示。
+The MQTT API is asynchronous, so messages are displayed as the callbacks are
+executed.
 
-以下为订阅者收到的信息:
-
-.. code-block:: console
-
-	mosquitto_sub -t sensors
-	DOORS:OPEN_QoS0
-	DOORS:OPEN_QoS1
-	DOORS:OPEN_QoS2
-	DOORS:OPEN_QoS0
-	DOORS:OPEN_QoS1
-	DOORS:OPEN_QoS2
-	DOORS:OPEN_QoS0
-	DOORS:OPEN_QoS1
-	DOORS:OPEN_QoS2
-	DOORS:OPEN_QoS0
-	DOORS:OPEN_QoS1
-	DOORS:OPEN_QoS2
-	DOORS:OPEN_QoS0
-	DOORS:OPEN_QoS1
-	DOORS:OPEN_QoS2
-
-以下为 MQTT 代理输出信息:
+This is the information that the subscriber will receive:
 
 .. code-block:: console
 
-	sudo mosquitto -v
+	$ mosquitto_sub -t sensors
+	DOORS:OPEN_QoS0
+	DOORS:OPEN_QoS1
+	DOORS:OPEN_QoS2
+	DOORS:OPEN_QoS0
+	DOORS:OPEN_QoS1
+	DOORS:OPEN_QoS2
+	DOORS:OPEN_QoS0
+	DOORS:OPEN_QoS1
+	DOORS:OPEN_QoS2
+	DOORS:OPEN_QoS0
+	DOORS:OPEN_QoS1
+	DOORS:OPEN_QoS2
+	DOORS:OPEN_QoS0
+	DOORS:OPEN_QoS1
+	DOORS:OPEN_QoS2
+
+This is the output from the MQTT broker:
+
+.. code-block:: console
+
+	$ sudo mosquitto -v
 	1485663791: mosquitto version 1.3.4 (build date 2014-08-17 00:14:52-0300) starting
 	1485663791: Using default config.
 	1485663791: Opening ipv4 listen socket on port 1883.
@@ -246,3 +414,9 @@ MQTT API 是异步的, 所以消息在回调函数执行时显示。
 	1485663807: Received PUBREL from zephyr_publisher (Mid: 49829)
 	1485663807: Sending PUBCOMP to zephyr_publisher (Mid: 49829)
 	1485663808: Received DISCONNECT from zephyr_publisher
+
+Wi-Fi
+=====
+
+The IPv4 Wi-Fi support can be enabled in the sample with
+:ref:`Wi-Fi snippet <snippet-wifi-ipv4>`.

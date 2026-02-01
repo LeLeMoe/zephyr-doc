@@ -6,21 +6,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <stdint.h>
+#include <zephyr/types.h>
 #include <stddef.h>
-#include <misc/printk.h>
+#include <zephyr/sys/printk.h>
+#include <zephyr/ztest.h>
 
-#include <bluetooth/bluetooth.h>
+#include <zephyr/bluetooth/bluetooth.h>
 
-void main(void)
+ZTEST_SUITE(test_bluetooth_init, NULL, NULL, NULL, NULL, NULL);
+
+ZTEST(test_bluetooth_init, test_init)
 {
-	int err;
-
-	err = bt_enable(NULL);
-	if (err) {
-		printk("Bluetooth init failed (err %d)\n", err);
-		return;
-	}
-
-	printk("Bluetooth initialized\n");
+	zassert_false(bt_enable(NULL), "Bluetooth init failed");
 }

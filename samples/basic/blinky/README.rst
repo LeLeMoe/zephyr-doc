@@ -1,33 +1,97 @@
-.. _blinky-sample:
+.. zephyr:code-sample:: blinky
+   :name: Blinky
+   :relevant-api: gpio_interface
 
-Blinky
-##################
+   Blink an LED forever using the GPIO API.
 
-概览
+Overview
 ********
 
-Blinky 示例演示了如何将 GPIO 配置为输出引脚，从而驱动 LED，它们通常在 Zephyr 支持的众多开发板中也被当成 “User LEDs”。
+The Blinky sample blinks an LED forever using the :ref:`GPIO API <gpio_api>`.
 
-需求
+The source code shows how to:
+
+#. Get a pin specification from the :ref:`devicetree <dt-guide>` as a
+   :c:struct:`gpio_dt_spec`
+#. Configure the GPIO pin as an output
+#. Toggle the pin forever
+
+See :zephyr:code-sample:`pwm-blinky` for a similar sample that uses the PWM API instead.
+
+.. _blinky-sample-requirements:
+
+Requirements
 ************
 
-此示例假设某个 LED 已经连上一个 GPIO 引脚。此示例代码的运行需要用户在 :file:`board.h` 中为开发板定义按钮以及 LED0_* 变量。
+Your board must:
 
-:file:`board.h` 必须定义以下变量：
+#. Have an LED connected via a GPIO pin (these are called "User LEDs" on many of
+   Zephyr's :ref:`boards`).
+#. Have the LED configured using the ``led0`` devicetree alias.
 
-- LED0_GPIO_PORT
-- LED0_GPIO_PIN
-
-
-编译并运行
+Building and Running
 ********************
 
-此示例不在控制台输出任何内容。可通过以下命令将其编译并烧写进开发板：
+Build and flash Blinky as follows, changing ``reel_board`` for your board:
 
-.. code-block:: console
+.. zephyr-app-commands::
+   :zephyr-app: samples/basic/blinky
+   :board: reel_board
+   :goals: build flash
+   :compact:
 
-   $ cd samples/basic/blinky
-   $ make BOARD=arduino_101
-   $ make BOARD=arduino_101 flash
+After flashing, the LED starts to blink and messages with the current LED state
+are printed on the console. If a runtime error occurs, the sample exits without
+printing to the console.
 
-将镜像烧写进开发板之后，开发板上的用户 LED 开始闪烁。
+Build errors
+************
+
+You will see a build error at the source code line defining the ``struct
+gpio_dt_spec led`` variable if you try to build Blinky for an unsupported
+board.
+
+On GCC-based toolchains, the error looks like this:
+
+.. code-block:: none
+
+   error: '__device_dts_ord_DT_N_ALIAS_led_P_gpios_IDX_0_PH_ORD' undeclared here (not in a function)
+
+Adding board support
+********************
+
+To add support for your board, add something like this to your devicetree:
+
+.. code-block:: DTS
+
+   / {
+   	aliases {
+   		led0 = &myled0;
+   	};
+
+   	leds {
+   		compatible = "gpio-leds";
+   		myled0: led_0 {
+   			gpios = <&gpio0 13 GPIO_ACTIVE_LOW>;
+                };
+   	};
+   };
+
+The above sets your board's ``led0`` alias to use pin 13 on GPIO controller
+``gpio0``. The pin flags :c:macro:`GPIO_ACTIVE_LOW` mean the LED is on when
+the pin is set to its low state, and off when the pin is in its high state.
+
+Tips:
+
+- See :dtcompatible:`gpio-leds` for more information on defining GPIO-based LEDs
+  in devicetree.
+
+- If you're not sure what to do, check the devicetrees for supported boards which
+  use the same SoC as your target. See :ref:`get-devicetree-outputs` for details.
+
+- See :zephyr_file:`include/zephyr/dt-bindings/gpio/gpio.h` for the flags you can use
+  in devicetree.
+
+- If the LED is built in to your board hardware, the alias should be defined in
+  your :ref:`BOARD.dts file <devicetree-in-out-files>`. Otherwise, you can
+  define one in a :ref:`devicetree overlay <set-devicetree-overlays>`.

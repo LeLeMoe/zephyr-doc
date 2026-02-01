@@ -6,15 +6,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <zephyr.h>
-#include <tc_util.h>
+#include <zephyr/kernel.h>
+#include <zephyr/tc_util.h>
 
 #include "syskernel.h"
 
 #include <string.h>
 
-char __stack thread_stack1[STACK_SIZE];
-char __stack thread_stack2[STACK_SIZE];
+K_THREAD_STACK_DEFINE(thread_stack1, STACK_SIZE);
+K_THREAD_STACK_DEFINE(thread_stack2, STACK_SIZE);
+struct k_thread thread_data1;
+struct k_thread thread_data2;
 
 char Msg[256];
 
@@ -27,19 +29,21 @@ const char sz_fail[] = "FAILED";
 /* time necessary to read the time */
 uint32_t tm_off;
 
+/* Holds the loop count that need to be carried out. */
+uint32_t number_of_loops;
+
 /**
  *
  * @brief Get the time ticks before test starts
  *
  * Routine does necessary preparations for the test to start
  *
- * @return N/A
  */
 void begin_test(void)
 {
 	/*
 	 * Invoke bench_test_start in order to be able to use
-	 * tCheck static variable.
+	 * timestamp_check static variable.
 	 */
 	bench_test_start();
 }
@@ -56,7 +60,7 @@ void begin_test(void)
 int check_result(int i, uint32_t t)
 {
 	/*
-	 * bench_test_end checks tCheck static variable.
+	 * bench_test_end checks timestamp_check static variable.
 	 * bench_test_start modifies it
 	 */
 	if (bench_test_end() != 0) {
@@ -66,7 +70,7 @@ int check_result(int i, uint32_t t)
 		fprintf(output_file, sz_case_end_fmt);
 		return 0;
 	}
-	if (i != NUMBER_OF_LOOPS) {
+	if (i != number_of_loops) {
 		fprintf(output_file, sz_case_result_fmt, sz_fail);
 		fprintf(output_file, sz_case_details_fmt, "loop counter = ");
 		fprintf(output_file, "%i !!!", i);
@@ -77,24 +81,11 @@ int check_result(int i, uint32_t t)
 	fprintf(output_file, sz_case_details_fmt,
 			"Average time for 1 iteration: ");
 	fprintf(output_file, sz_case_timing_fmt,
-			SYS_CLOCK_HW_CYCLES_TO_NS_AVG(t, NUMBER_OF_LOOPS));
+			SYS_CLOCK_HW_CYCLES_TO_NS_AVG(t, number_of_loops));
 
 	fprintf(output_file, sz_case_end_fmt);
 	return 1;
 }
-
-
-/**
- *
- * @brief Check for a key press
- *
- * @return 1 when a keyboard key is pressed, or 0 if no keyboard support
- */
-int kbhit(void)
-{
-	return 0;
-}
-
 
 /**
  *
@@ -102,7 +93,6 @@ int kbhit(void)
  *
  * @param continuously   Run test till the user presses the key.
  *
- * @return N/A
  */
 
 void init_output(int *continuously)
@@ -120,7 +110,6 @@ void init_output(int *continuously)
  *
  * @brief Close output for the test
  *
- * @return N/A
  */
 void output_close(void)
 {
@@ -130,15 +119,31 @@ void output_close(void)
  *
  * @brief Perform all selected benchmarks
  *
- * @return N/A
  */
-void main(void)
+int main(void)
 {
 	int	    continuously = 0;
 	int	    test_result;
 
+	number_of_loops = NUMBER_OF_LOOPS;
+
+	/* The following code is needed to make the benchmarking run on
+	 * slower platforms.
+	 */
+	uint64_t time_stamp = sys_clock_tick_get();
+
+	k_sleep(K_MSEC(1));
+
+	uint64_t time_stamp_2 = sys_clock_tick_get();
+
+	if (time_stamp_2 - time_stamp > 1) {
+		number_of_loops = 10U;
+	}
+
 	init_output(&continuously);
 	bench_test_init();
+
+
 
 	do {
 		fprintf(output_file, sz_module_title_fmt,
@@ -148,7 +153,7 @@ void main(void)
 		fprintf(output_file,
 			"\n\nEach test below is repeated %d times;\n"
 			"average time for one iteration is displayed.",
-			NUMBER_OF_LOOPS);
+			number_of_loops);
 
 		test_result = 0;
 
@@ -156,10 +161,12 @@ void main(void)
 		test_result += lifo_test();
 		test_result += fifo_test();
 		test_result += stack_test();
+		test_result += malloc_test();
+		test_result += mem_slab_test();
 
 		if (test_result) {
-			/* sema/lifo/fifo/stack account for 12 tests in total */
-			if (test_result == 12) {
+			/* sema/lifo/fifo/stack/malloc/mem_slab account for 16 tests in total */
+			if (test_result == 16) {
 				fprintf(output_file, sz_module_result_fmt,
 					sz_success);
 			} else {
@@ -171,7 +178,8 @@ void main(void)
 		}
 		TC_PRINT_RUNID;
 
-	} while (continuously && !kbhit());
+	} while (continuously);
 
 	output_close();
+	return 0;
 }

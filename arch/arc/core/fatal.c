@@ -12,74 +12,60 @@
  * ARCv2 CPUs.
  */
 
-#include <kernel_structs.h>
+#include <zephyr/kernel.h>
 #include <offsets_short.h>
-#include <toolchain.h>
-#include <arch/cpu.h>
+#include <zephyr/arch/cpu.h>
+#include <zephyr/logging/log.h>
+#include <kernel_arch_data.h>
+#include <zephyr/arch/exception.h>
 
-#ifdef CONFIG_PRINTK
-#include <misc/printk.h>
-#define PR_EXC(...) printk(__VA_ARGS__)
-#else
-#define PR_EXC(...)
-#endif /* CONFIG_PRINTK */
+LOG_MODULE_DECLARE(os, CONFIG_KERNEL_LOG_LEVEL);
 
-const NANO_ESF _default_esf = {
-	0xdeaddead, /* placeholder */
-};
-
-/**
- *
- * @brief Kernel fatal error handler
- *
- * This routine is called when fatal error conditions are detected by software
- * and is responsible only for reporting the error. Once reported, it then
- * invokes the user provided routine _SysFatalErrorHandler() which is
- * responsible for implementing the error handling policy.
- *
- * The caller is expected to always provide a usable ESF. In the event that the
- * fatal error does not have a hardware generated ESF, the caller should either
- * create its own or use a pointer to the global default ESF <_default_esf>.
- *
- * @return This function does not return.
- */
-FUNC_NORETURN void _NanoFatalErrorHandler(unsigned int reason,
-							const NANO_ESF *pEsf)
+#ifdef CONFIG_EXCEPTION_DEBUG
+static void dump_arc_esf(const struct arch_esf *esf)
 {
-	switch (reason) {
-	case _NANO_ERR_INVALID_TASK_EXIT:
-		PR_EXC("***** Invalid Exit Software Error! *****\n");
-		break;
-
-#if defined(CONFIG_STACK_CANARIES)
-	case _NANO_ERR_STACK_CHK_FAIL:
-		PR_EXC("***** Stack Check Fail! *****\n");
-		break;
+	EXCEPTION_DUMP(" r0: 0x%" PRIxPTR "  r1: 0x%" PRIxPTR "  r2: 0x%" PRIxPTR
+		"  r3: 0x%" PRIxPTR "", esf->r0, esf->r1, esf->r2, esf->r3);
+	EXCEPTION_DUMP(" r4: 0x%" PRIxPTR "  r5: 0x%" PRIxPTR "  r6: 0x%" PRIxPTR
+		"  r7: 0x%" PRIxPTR "", esf->r4, esf->r5, esf->r6, esf->r7);
+	EXCEPTION_DUMP(" r8: 0x%" PRIxPTR "  r9: 0x%" PRIxPTR " r10: 0x%" PRIxPTR
+		" r11: 0x%" PRIxPTR "", esf->r8, esf->r9, esf->r10, esf->r11);
+	EXCEPTION_DUMP("r12: 0x%" PRIxPTR " r13: 0x%" PRIxPTR "  pc: 0x%" PRIxPTR "",
+		esf->r12, esf->r13, esf->pc);
+	EXCEPTION_DUMP(" blink: 0x%" PRIxPTR " status32: 0x%" PRIxPTR "",
+		esf->blink, esf->status32);
+#ifdef CONFIG_ARC_HAS_ZOL
+	EXCEPTION_DUMP("lp_end: 0x%" PRIxPTR " lp_start: 0x%" PRIxPTR
+			" lp_count: 0x%" PRIxPTR "", esf->lp_end, esf->lp_start, esf->lp_count);
+#endif /* CONFIG_ARC_HAS_ZOL */
+}
 #endif
 
-	case _NANO_ERR_ALLOCATION_FAIL:
-		PR_EXC("**** Kernel Allocation Failure! ****\n");
-		break;
-
-	default:
-		PR_EXC("**** Unknown Fatal Error %d! ****\n", reason);
-		break;
+void z_arc_fatal_error(unsigned int reason, const struct arch_esf *esf)
+{
+#ifdef CONFIG_EXCEPTION_DEBUG
+	if (esf != NULL) {
+		dump_arc_esf(esf);
 	}
-	PR_EXC("Current thread ID = %p\n"
-	       "Faulting instruction address = 0x%lx\n",
-	       k_current_get(),
-	       _arc_v2_aux_reg_read(_ARC_V2_ERET));
+#endif /* CONFIG_EXCEPTION_DEBUG */
 
-	/*
-	 * Now that the error has been reported, call the user implemented
-	 * policy
-	 * to respond to the error.  The decisions as to what responses are
-	 * appropriate to the various errors are something the customer must
-	 * decide.
-	 */
+	z_fatal_error(reason, esf);
+}
 
-	_SysFatalErrorHandler(reason, pEsf);
+FUNC_NORETURN void arch_syscall_oops(void *ssf_ptr)
+{
+	/* TODO: convert ssf_ptr contents into an esf, they are not the same */
+	ARG_UNUSED(ssf_ptr);
 
-	for (;;)
-		;
+	z_arc_fatal_error(K_ERR_KERNEL_OOPS, NULL);
+	CODE_UNREACHABLE;
+}
+
+FUNC_NORETURN void arch_system_halt(unsigned int reason)
+{
+	ARG_UNUSED(reason);
+
+	__asm__("brk");
+
+	CODE_UNREACHABLE;
 }

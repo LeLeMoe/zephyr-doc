@@ -1,40 +1,44 @@
 /*
- * Copyright (c) 2016 Wind River Systems, Inc.
- * Copyright (c) 2016 Cadence Design Systems, Inc.
+ * Copyright (c) 2021 Intel Corporation
  * SPDX-License-Identifier: Apache-2.0
  */
+#ifndef ZEPHYR_ARCH_XTENSA_INCLUDE_OFFSETS_SHORT_ARCH_H_
+#define ZEPHYR_ARCH_XTENSA_INCLUDE_OFFSETS_SHORT_ARCH_H_
 
-#ifndef _offsets_short_arch__h_
-#define _offsets_short_arch__h_
+#define _thread_offset_to_flags \
+	(___thread_t_arch_OFFSET + ___thread_arch_t_flags_OFFSET)
 
-#include <offsets.h>
+#ifdef CONFIG_USERSPACE
+#define _thread_offset_to_psp \
+	(___thread_t_arch_OFFSET + ___thread_arch_t_psp_OFFSET)
 
-/* kernel */
-#define KERNEL_OFFSET(field) _kernel_offset_to_##field
+#define _thread_offset_to_return_ps \
+	(___thread_t_arch_OFFSET + ___thread_arch_t_return_ps_OFFSET)
 
-#define _kernel_offset_to_flags \
-	(___kernel_t_arch_OFFSET + ___kernel_arch_t_flags_OFFSET)
+#define _thread_offset_to_ptables \
+	(___thread_t_arch_OFFSET + ___thread_arch_t_ptables_OFFSET)
 
-/* end - kernel */
+#define _thread_offset_to_mem_domain \
+	(___thread_t_mem_domain_info_OFFSET + ___mem_domain_info_t_mem_domain_OFFSET)
 
-/* threads */
-#define THREAD_OFFSET(field) _thread_offset_to_##field
+#define _k_mem_domain_offset_to_arch_reg_asid \
+	(__k_mem_domain_t_arch_OFFSET + __arch_mem_domain_t_reg_asid_OFFSET)
 
-#define _thread_offset_to_sp \
-	(___thread_t_callee_saved_OFFSET + ___callee_saved_t_topOfStack_OFFSET)
+#define _k_mem_domain_offset_to_arch_reg_ptevaddr \
+	(__k_mem_domain_t_arch_OFFSET + __arch_mem_domain_t_reg_ptevaddr_OFFSET)
 
-#define _thread_offset_to_retval \
-	(___thread_t_callee_saved_OFFSET + ___callee_saved_t_retval_OFFSET)
+#define _k_mem_domain_offset_to_arch_reg_ptepin_as \
+	(__k_mem_domain_t_arch_OFFSET + __arch_mem_domain_t_reg_ptepin_as_OFFSET)
 
-#define _thread_offset_to_coopCoprocReg \
-	(___thread_t_arch_OFFSET + ___thread_arch_t_coopCoprocReg_OFFSET)
+#define _k_mem_domain_offset_to_arch_reg_ptepin_at \
+	(__k_mem_domain_t_arch_OFFSET + __arch_mem_domain_t_reg_ptepin_at_OFFSET)
 
-#define _thread_offset_to_preempCoprocReg \
-	(___thread_t_arch_OFFSET + ___thread_arch_t_preempCoprocReg_OFFSET)
+#define _k_mem_domain_offset_to_arch_reg_vecpin_as \
+	(__k_mem_domain_t_arch_OFFSET + __arch_mem_domain_t_reg_vecpin_as_OFFSET)
 
-#define _thread_offset_to_cpStack \
-	(_thread_offset_to_preempCoprocReg + __tPreempCoprocReg_cpStack_OFFSET)
+#define _k_mem_domain_offset_to_arch_reg_vecpin_at \
+	(__k_mem_domain_t_arch_OFFSET + __arch_mem_domain_t_reg_vecpin_at_OFFSET)
 
-/* end - threads */
+#endif /* CONFIG_USERSPACE */
 
-#endif /* _offsets_short_arch__h_ */
+#endif /* ZEPHYR_ARCH_XTENSA_INCLUDE_OFFSETS_SHORT_ARCH_H_ */

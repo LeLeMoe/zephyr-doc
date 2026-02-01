@@ -1,14 +1,23 @@
-#include <zephyr.h>
-#include <misc/printk.h>
-#include <console.h>
+/*
+ * Copyright (c) 2017 Linaro Limited
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
-void main(void)
+#include <zephyr/kernel.h>
+#include <zephyr/sys/printk.h>
+#include <zephyr/console/console.h>
+
+int main(void)
 {
-	console_getchar_init();
+	console_init();
+
+	printk("Start typing characters to see their hex codes printed\n");
 
 	while (1) {
 		uint8_t c = console_getchar();
 
 		printk("char: [0x%x] %c\n", c, c);
 	}
+	return 0;
 }

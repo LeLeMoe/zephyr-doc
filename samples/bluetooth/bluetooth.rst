@@ -1,43 +1,34 @@
-.. _bluetooth_setup:
+.. zephyr:code-sample-category:: bluetooth
+   :name: Bluetooth
 
-Bluetooth
-##########
+   These samples demonstrate the use of Bluetooth in Zephyr.
 
-To build any of the Bluetooth samples, follow the instructions below:
+To build any of the Bluetooth samples, follow the same steps as building
+any other Zephyr application. Refer to :ref:`bluetooth-dev` for more information.
 
-.. code-block:: console
+Many Bluetooth samples can be run on QEMU or :zephyr:board:`native_sim <native_sim>` with support for
+external Bluetooth Controllers. Refer to the :ref:`bluetooth-hw-setup` section
+for further details.
 
-   $ make -C samples/bluetooth/<app>
+Several of the bluetooth samples will build a Zephyr-based Controller that can
+then be used with any external Host (including Zephyr running natively or with
+QEMU or ``native_sim``), those are named accordingly with an "HCI" prefix in the
+documentation and are prefixed with :literal:`hci_` in their folder names.
 
-Host Bluetooth controller is connected to the second QEMU serial line through a
-Unix socket (QEMU option -serial unix:/tmp/bt-server-bredr).  This option is
-already added to Qemu through QEMU_EXTRA_FLAGS in Makefile.
+.. note::
+   If you want to run any bluetooth sample on the nRF5340 device (build using
+   ``-DBOARD=nrf5340dk/nrf5340/cpuapp`` or
+   ``-DBOARD=nrf5340dk/nrf5340/cpuapp/ns``) you must also build
+   and program the corresponding sample for the nRF5340 network core
+   :zephyr:code-sample:`bluetooth_hci_ipc` which implements the Bluetooth
+   Low Energy controller.
 
-On the host side BlueZ allows to "connect" Bluetooth controller through a
-so-called user channel. Use the btproxy tool for that:
+.. note::
+   The mutually-shared encryption key created during host-device paring may get
+   old after many test iterations.  If this happens, subsequent host-device
+   connections will fail. You can force a re-paring and new key to be created
+   by removing the device from the associated devices list on the host.
 
-Note that before calling ``btproxy`` make sure that Bluetooth controller is
-down.
-
-.. code-block:: console
-
-   $ sudo tools/btproxy -u
-   Listening on /tmp/bt-server-bredr
-
-Running the application in Qemu will connect the second serial line to
-``bt-server-bredr`` Unix socket. When Bluetooth (CONFIG_BLUETOOTH) and Bluetooth
-HCI UART driver (CONFIG_BLUETOOTH_H4) are enabled, the Bluetooth driver
-registers with the system.
-
-From now on Bluetooth may be used by the application. To run applications in
-the Qemu emulation environment, type:
-
-.. code-block:: console
-
-   $ make run
-
-.. toctree::
-   :maxdepth: 1
-   :glob:
-
-   **/*
+.. zephyr:code-sample-listing::
+   :categories: bluetooth
+   :live-search:

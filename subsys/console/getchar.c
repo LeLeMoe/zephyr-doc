@@ -4,53 +4,76 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <zephyr.h>
-#include <uart.h>
-#include <misc/printk.h>
-#include <drivers/console/console.h>
-#include <drivers/console/uart_console.h>
+#include <zephyr/kernel.h>
+#include <zephyr/device.h>
+#include <zephyr/console/console.h>
+#include <zephyr/console/tty.h>
+#include <zephyr/drivers/uart.h>
 
-#if CONFIG_CONSOLE_GETCHAR_BUFSIZE & (CONFIG_CONSOLE_GETCHAR_BUFSIZE - 1) != 0
-#error CONFIG_CONSOLE_GETCHAR_BUFSIZE must be power of 2
-#endif
+static struct tty_serial console_serial;
 
-static K_SEM_DEFINE(uart_sem, 0, UINT_MAX);
-static uint8_t uart_ringbuf[CONFIG_CONSOLE_GETCHAR_BUFSIZE];
-static uint8_t i_get, i_put;
+static uint8_t console_rxbuf[CONFIG_CONSOLE_GETCHAR_BUFSIZE];
+static uint8_t console_txbuf[CONFIG_CONSOLE_PUTCHAR_BUFSIZE];
 
-static int console_irq_input_hook(uint8_t c)
+ssize_t console_write(void *dummy, const void *buf, size_t size)
 {
-	int i_next = (i_put + 1) & (CONFIG_CONSOLE_GETCHAR_BUFSIZE - 1);
+	ARG_UNUSED(dummy);
 
-	if (i_next == i_get) {
-		printk("Console buffer overflow - char dropped\n");
-		return 1;
-	}
-
-	uart_ringbuf[i_put] = c;
-	i_put = i_next;
-	k_sem_give(&uart_sem);
-
-	return 1;
+	return tty_write(&console_serial, buf, size);
 }
 
-uint8_t console_getchar(void)
+ssize_t console_read(void *dummy, void *buf, size_t size)
 {
-	unsigned int key;
-	uint8_t c;
+	ARG_UNUSED(dummy);
 
-	k_sem_take(&uart_sem, K_FOREVER);
-	key = irq_lock();
-	c = uart_ringbuf[i_get++];
-	i_get &= CONFIG_CONSOLE_GETCHAR_BUFSIZE - 1;
-	irq_unlock(key);
+	return tty_read(&console_serial, buf, size);
+}
+
+int console_putchar(char c)
+{
+	return tty_write(&console_serial, &c, 1);
+}
+
+int console_getchar(void)
+{
+	uint8_t c;
+	int res;
+
+	res = tty_read(&console_serial, &c, 1);
+	if (res < 0) {
+		return res;
+	}
 
 	return c;
 }
 
-void console_getchar_init(void)
+int console_init(void)
 {
-	uart_console_in_debug_hook_install(console_irq_input_hook);
-	/* All NULLs because we're interested only in the callback above. */
-	uart_register_input(NULL, NULL, NULL);
+	const struct device *uart_dev;
+	int ret;
+
+	uart_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_console));
+	if (!device_is_ready(uart_dev)) {
+		return -ENODEV;
+	}
+
+	ret = tty_init(&console_serial, uart_dev);
+
+	if (ret) {
+		return ret;
+	}
+
+	/* Checks device driver supports for interrupt driven data transfers. */
+	if (CONFIG_CONSOLE_GETCHAR_BUFSIZE + CONFIG_CONSOLE_PUTCHAR_BUFSIZE) {
+		const struct uart_driver_api *api =
+			(const struct uart_driver_api *)uart_dev->api;
+		if (!api->irq_callback_set) {
+			return -ENOTSUP;
+		}
+	}
+
+	tty_set_tx_buf(&console_serial, console_txbuf, sizeof(console_txbuf));
+	tty_set_rx_buf(&console_serial, console_rxbuf, sizeof(console_rxbuf));
+
+	return 0;
 }

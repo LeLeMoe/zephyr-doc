@@ -1,50 +1,45 @@
-.. _telnet-console-sample:
+.. zephyr:code-sample:: telnet-console
+   :name: Telnet console
+   :relevant-api: shell_api net_core net_if net_mgmt
 
-TELNET控制台应用示例
-#################################
+   Access Zephyr shell over telnet.
 
-概览
+Overview
 ********
 
-此应用程序将在默认网络接口安装IPv4/IPv6地址。telnet控制台服务由内核透明启动，伴随shell和双shell模块：net和内核。一旦启动和运行，你可以通过连接到目标，使用Telnet客户端。
+This application will setup IPv4/IPv6 addresses on the default
+network interface. The telnet console service is started transparently
+by the kernel, along with the shell and two shell modules: net and kernel.
+Once up and running, you can connect to the target over the network,
+using a telnet client.
 
-需求
+Requirements
 ************
 
-- :ref:`Networking with Qemu <networking_with_qemu>`
+- :ref:`networking_with_qemu`
 
 
-编译和运行
+Building and Running
 ********************
 
 QEMU x86
 ========
 
-这是使用此示例应用程序的指南，讲解了在Linux主机如何使用QEMU通过DHCP服务器连接至网络。
+These are instructions for how to use this sample application using
+QEMU on a Linux host connected to a network with DHCP service.
 
-使用QEMU进行测试，请参考 :ref:`Networking with Qemu
-<networking_with_qemu>` 指南。
+To use QEMU for testing, follow the :ref:`networking_with_qemu` guide.
 
-在net-tools中运行 'loop_socat' 和 'loop-slip-tap' 脚本。
+Run Zephyr samples/net/telnet application in QEMU:
 
-.. code-block:: console
+.. zephyr-app-commands::
+   :zephyr-app: samples/net/telnet
+   :host-os: unix
+   :board: qemu_x86
+   :goals: run
+   :compact:
 
-    $ ./loop_socat.sh
-
-在另一窗口:
-
-.. code-block:: console
-
-    $ sudo ./loop-slip-tap.sh
-
-在QEMU中运行 samples/net/telnet 应用程序:
-
-.. code-block:: console
-
-    $ cd $ZEPHYR_BASE/samples/net/telnet
-    $ make pristine && make run
-
-一旦启动，你将看到IP地址细节，如:
+Once started, you should see you IP address details for example:
 
 .. code-block:: console
 
@@ -52,7 +47,8 @@ QEMU x86
     [Setup] [INF] setup_ipv4: IPv4 address: 192.0.2.1
     [Setup] [INF] setup_ipv6: IPv6 address: 2001:db8::1
 
-此时，你的QEMU guest启动并运行。通过以下方法从你的Linux主机连接到telnet控制台：
+At this point, your QEMU guest is up and running. Connect to the telnet
+console from your linux host this way:
 
 .. code-block:: console
 
@@ -62,34 +58,44 @@ QEMU x86
     Connected to 192.0.2.1.
     Escape character is '^]'.
 
-现在键入回车，将显示shell提示，你可以开始键入命令，如 ``help``。
+Now type enter, the shell prompt will appear and you can enter commands,
+for example ``help``.
 
 
 Freedom-K64F Board
 ===================
 
-这是讲解如何在Freedom-K64F开发板上运行此示例应用程序的指南。与在QEMU上运行不同， :ref:`Freedom-K64F board <frdm_k64f>` 的网络配置将依靠DHCPv4。如果实在需要，你可以更改 :file:`prj_frdm_k64f.conf` 文件以设置静态IPv4地址。
+These are instructions for how to use this sample application running on a
+Freedom-K64F board. Unlike running it on QEMU, :zephyr:board:`Freedom-K64F board
+<frdm_k64f>` network configuration for IPv4 will rely on DHCPv4. You cad modify
+the :file:`prj_frdm_k64f.conf` to set static IPv4 addresses if it is really needed.
 
-有关创建、烧写和使用串口控制台日志的详细指令，请参考 :ref:`Freedom-K64F board <frdm_k64f>` 的文档部分。
+For detailed instructions about building, flashing and using the serial console
+logs, follow the  :zephyr:board:`Freedom-K64F board <frdm_k64f>` documentation section.
 
-把:ref:`Freedom-K64F <frdm_k64f>` 开发板通过网线连接至本地网络，将通过DHCPv4来提供IPv4地址配置。在本地网络创建你自己的DHCP服务器不在本文讨论范围内。
+Connect ethernet cable from :zephyr:board:`Freedom-K64F <frdm_k64f>` board to a
+local network providing IPv4 address configuration via DHCPv4. Creating your own
+DHCP server on a local network is not in the scope of this README.
 
-创建 samples/net/telnet Zephyr应用程序:
+Build Zephyr samples/net/telnet application:
 
-.. code-block:: console
+.. zephyr-app-commands::
+   :zephyr-app: samples/net/telnet
+   :board: frdm_k64f
+   :goals: build
+   :compact:
 
-    $ cd $ZEPHYR_BASE/samples/net/dhcpv4_client
-    $ make pristine && make BOARD=frdm_k64f
+Flash the resulting Zephyr binary following the :zephyr:board:`Freedom-K64F <frdm_k64f>`
+board documentation noted above.
 
-根据 :ref:`Freedom-K64F <frdm_k64f>`开发板文档烧写生成的Zephyr二进制文件。
-
-在电脑主机中为你的开发板打开串口控制台:
+From your host computer, open a serial console to your board:
 
 .. code-block:: console
 
     $ sudo screen /dev/ttyACM0 115200
 
-将以太网线缆插入 :ref:`Freedom-K64F <frdm_k64f>` 开发板。重启开发板，首先会在控制台上看到:
+Plug the Ethernet cable to the :zephyr:board:`Freedom-K64F <frdm_k64f>` board.
+Reset the board, you should see first on the console:
 
 .. code-block:: console
 
@@ -99,7 +105,7 @@ Freedom-K64F Board
     [Setup] [INF] setup_dhcpv4: Running dhcpv4 client...
     [Setup] [INF] setup_ipv6: IPv6 address: 2001:db8::1
 
-如果DHCPv4客户端成功，将很快看到和以下类似的文字:
+And if the DHCPv4 client succeeds, you will soon see something like:
 
 .. code-block:: console
 
@@ -108,7 +114,9 @@ Freedom-K64F Board
    [Setup] [INF] ipv4_addr_add_handler: Subnet: 255.255.255.0
    [Setup] [INF] ipv4_addr_add_handler: Router: 192.168.0.1
 
-以上结果依赖于你的网络。此时你应当已经使用telnet通过网络连接至你的Linux主机：
+The above result depends on your local network.
+At this point you should be able to connect via telnet over the network.
+On your linux host:
 
 .. code-block:: console
 
@@ -118,4 +126,11 @@ Freedom-K64F Board
     Connected to 192.168.0.1.
     Escape character is '^]'.
 
-现在已经连接成功，使用UART控制台，你可以输入命令并通过telnet客户端获得输出。
+You are now connected, and as for the UART console, you can type in
+your commands and get the output through your telnet client.
+
+Wi-Fi
+=====
+
+The IPv4 Wi-Fi support can be enabled in the sample with
+:ref:`Wi-Fi snippet <snippet-wifi-ipv4>`.
